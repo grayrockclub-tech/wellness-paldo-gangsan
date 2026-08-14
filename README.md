@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 웰니스 팔도강산
 
-## Getting Started
+2026 관광데이터 활용 공모전 웹·앱 개발 부문 제출용 웹 프로젝트입니다.
+한국관광공사 TourAPI와 기상청 예보 데이터를 결합해 강원도 웰니스 여행 코스를 추천합니다.
 
-First, run the development server:
+## 기술 스택
+
+- Next.js 16 App Router
+- TypeScript
+- Tailwind CSS
+- 서버 API Route Handler
+- 메모리 캐시
+- Vercel 배포 예정
+
+## 로컬 실행
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+브라우저에서 `http://localhost:3000`을 엽니다.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 환경변수
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+`.env.example`을 참고해 `.env.local`을 만듭니다.
 
-## Learn More
+```bash
+TOUR_API_KEY=
+WEATHER_API_KEY=
+```
 
-To learn more about Next.js, take a look at the following resources:
+API 키는 `NEXT_PUBLIC_`을 붙이지 않습니다. 서버 라우트에서만 읽어 브라우저에 노출되지 않게 합니다.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 서버 API 라우트
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `GET /api/health`: 환경변수 설정 여부와 캐시 정책 확인
+- `GET /api/tour?operation=areaBasedList2&areaCode=32`: 강원도 TourAPI 샘플 호출
+- `GET /api/weather?operation=getVilageFcst&nx=73&ny=134`: 기상청 단기예보 샘플 호출
+- `GET /api/recommendations?weather=rain&duration=half-day`: 추천 로직 샘플
 
-## Deploy on Vercel
+## 이번 주 완료 기준
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- 임시 웹 URL 생성
+- TourAPI 샘플 호출 성공
+- 기상 API 샘플 호출 성공
+- 강원도 기준 추천 데이터 샘플 확보
+- 서비스 핵심 기능 범위 확정
+- 기능설명서용 서비스 개요 초안 작성
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 제출 리스크
+
+- 1차 심사자료 마감: 2026년 9월 21일 16:00
+- 권장 제출 완료: 2026년 9월 18일
+- 웹 제출 필수 항목: 서비스 URL, 테스트 계정, OpenAPI 인증키, 활용 API, 기능설명서 PDF

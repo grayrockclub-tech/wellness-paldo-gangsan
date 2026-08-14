@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>웰니스 팔도강산</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+        
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        @keyframes marquee {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        .animate-marquee {
+            display: flex;
+            width: max-content;
+            animation: marquee 25s linear infinite;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.45);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+        }
+        .glass-dark {
+            background: rgba(15, 45, 45, 0.05);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        
+        /* Custom Animations */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideInLeft { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+        
+        .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        .slide-in-up { animation: slideInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .slide-in-left { animation: slideInLeft 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    </style>
+</head>
+<body>
+
+<div id="root" class="max-w-md mx-auto bg-gradient-to-br from-[#E0F2F1] via-[#F1F8E9] to-[#E3F2FD] min-h-screen relative shadow-2xl overflow-hidden text-slate-800">
+    <!-- Dynamic Background Blurs -->
+    <div class="absolute top-[-10%] left-[-10%] w-[80%] h-[40%] bg-emerald-200/40 rounded-full blur-[100px] -z-0"></div>
+    <div class="absolute top-[20%] right-[-20%] w-[70%] h-[50%] bg-blue-200/40 rounded-full blur-[120px] -z-0"></div>
+    <div class="absolute bottom-[-10%] left-[10%] w-[60%] h-[30%] bg-teal-100/50 rounded-full blur-[100px] -z-0"></div>
+
+    <main class="relative z-10 pb-32">
+        <!-- Header -->
+        <header class="px-6 pt-12 pb-6 glass sticky top-0 z-40 border-b border-white/40 flex justify-between items-center shadow-sm">
+            <div>
+                <h1 class="text-xl font-black text-emerald-900 tracking-tighter flex items-center">
+                    <i data-lucide="sparkles" class="mr-2 text-emerald-500 w-5 h-5"></i> 웰니스 팔도강산
+                </h1>
+                <p class="text-[9px] font-bold text-emerald-700/60 tracking-widest mt-1 uppercase">KOREA WELLNESS TOUR GUIDE</p>
+            </div>
+            <div class="flex space-x-2">
+                <button class="p-2.5 glass rounded-full shadow-sm text-slate-500 hover:text-emerald-600 transition-colors">
+                    <i data-lucide="search" class="w-[18px] h-[18px]"></i>
+                </button>
+                <div class="w-10 h-10 rounded-full glass border-2 border-white/80 shadow-md overflow-hidden p-0.5">
+                    <div class="w-full h-full rounded-full bg-gradient-to-tr from-emerald-400 to-sky-400"></div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Dynamic Content Area -->
+        <div id="content-area"></div>
+    </main>
+
+    <!-- Modal Overlay -->
+    <div id="modal-area"></div>
+
+    <!-- Navigation -->
+    <nav id="nav-area" class="fixed bottom-10 left-1/2 -translate-x-1/2 w-[85%] max-w-[380px] glass rounded-[4rem] shadow-[0_25px_80px_rgba(0,0,0,0.12)] border border-white/60 px-2 py-2.5 flex justify-around items-center z-[90]">
+    </nav>
+</div>
+
+<script>
+    // State Management
+    const state = {
+        activeTab: 'home',
+        mainRegion: '전체',
+        searchCategory: '전체',
+        searchQuery: '',
+        favorites: [],
+        selectedForPlan: [],
+        savedPlans: [],
+        viewingPlace: null,
+        isPlanning: false,
+        generatedCourse: null
+    };
+
+    // Data
+    const regions = [
+        { id: '전체', label: '전국', icon: 'map' },
+        { id: '서울/수도권', label: '서울/수도권', icon: 'shopping-bag' },
+        { id: '강원', label: '강원도', icon: 'mountain' },
+        { id: '충청', label: '충청도', icon: 'sun' },
+        { id: '전라', label: '전라도', icon: 'flower-2' },
+        { id: '경상', label: '경상도', icon: 'navigation' },
+        { id: '제주', label: '제주도', icon: 'cloud' }
+    ];
+
+    const allPlaces = [
+        { id: 'seoul-1', region: '서울/수도권', sub: '종로', category: 'beauty', name: "설화수 북촌 플래그십 스토어", addr: "서울시 종로구 북촌로 47", desc: "전통 한옥과 양옥이 어우러진 공간에서 즐기는 프리미엄 뷰티 경험.", score: 4.8, source: 'SEOUL' },
+        { id: 'seoul-2', region: '서울/수도권', sub: '중구', category: 'spa', name: "정관장 스파 1899", addr: "서울시 중구 을지로 30", desc: "홍삼의 에너지를 피부에 전달하는 고품격 한방 스파.", score: 4.9, source: 'SEOUL' },
+        { id: 'gyeonggi-1', region: '서울/수도권', sub: '포천', category: 'forest', name: "허브아일랜드", addr: "경기도 포천시 신북면 청신로 947번길 35", desc: "허브향 가득한 숲속 힐링과 아로마 테라피.", score: 4.6, source: 'KTO' },
+        { id: 'kw-1', region: '강원', sub: '평창', category: 'forest', name: "모나용평 발왕산 기 스카이워크", addr: "강원도 평창군 대관령면 올림픽로 715", desc: "해발 1,458m 정상에서 즐기는 산림욕과 명상.", score: 4.8, source: 'GW' },
+        { id: 'kto-1', region: '강원', sub: '정선', category: 'forest', name: "파크로쉬 리조트앤웰니스", addr: "강원도 정선군 북평면 중봉길 9-12", desc: "숙면과 휴식에 최적화된 국내 대표 웰니스 리조트.", score: 4.9, source: 'KTO' },
+        { id: 'kw-4', region: '강원', sub: '홍천', category: 'yoga', name: "힐리언스 선마을", addr: "강원도 홍천군 서면 종자산길 122", desc: "디지털 디톡스를 통해 진정한 쉼을 배우는 웰니스 센터.", score: 4.9, source: 'GW' },
+        { id: 'cc-1', region: '충청', sub: '충주', category: 'yoga', name: "깊은산속 옹달샘", addr: "충청북도 충주시 노은면 문성길 120", desc: "고도원의 아침편지로 유명한 명상 및 치유 센터.", score: 4.7, source: 'KTO' },
+        { id: 'cc-2', region: '충청', sub: '아산', category: 'spa', name: "파라다이스 스파 도고", addr: "충청남도 아산시 선장면 신성리 260", desc: "유황온천수를 활용한 건강한 스파 경험.", score: 4.5, source: 'KTO' },
+        { id: 'kto-2', region: '전라', sub: '진안', category: 'spa', name: "진안홍삼스파", addr: "전라북도 진안군 진안읍 외사양길 16-10", desc: "홍삼 성분을 활용한 오감 만족 한방 테라피.", score: 4.7, source: 'KTO' },
+        { id: 'jl-1', region: '전라', sub: '순천', category: 'forest', name: "순천만국가정원", addr: "전라남도 순천시 국가정원1호길 47", desc: "아름다운 정원 산책을 통한 심신 정화와 힐링.", score: 4.8, source: 'KTO' },
+        { id: 'gs-1', region: '경상', sub: '영주', category: 'forest', name: "국립산림치유원", addr: "경상북도 영주시 봉현면 테라피로 209", desc: "백두대간의 풍부한 산림자원을 활용한 치유 프로그램.", score: 4.7, source: 'KTO' },
+        { id: 'gs-2', region: '경상', sub: '부산', category: 'beauty', name: "해운대 달맞이길 스파", addr: "부산광역시 해운대구 달맞이길", desc: "바다를 보며 즐기는 도심 속 미용 및 휴식 스파.", score: 4.6, source: 'KTO' },
+        { id: 'kto-3', region: '제주', sub: '성산', category: 'yoga', name: "취다선 리조트", addr: "제주도 서귀포시 성산읍 해맞이해안로 2614", desc: "차(Tea)와 명상을 통한 오롯한 자기 집중의 시간.", score: 4.9, source: 'KTO' },
+        { id: 'jj-1', region: '제주', sub: '안덕', category: 'forest', name: "서귀포 치유의 숲", addr: "제주도 서귀포시 산록남로 2271", desc: "제주 특유의 숲길을 걸으며 즐기는 산림 치유.", score: 4.8, source: 'KTO' }
+    ];
+
+    // Helper functions
+    const getFilteredPlaces = () => {
+        return allPlaces.filter(p => {
+            const regionMatch = state.mainRegion === '전체' || p.region === state.mainRegion;
+            const categoryMatch = state.searchCategory === '전체' || p.category === state.searchCategory;
+            const searchMatch = p.name.includes(state.searchQuery) || p.desc.includes(state.searchQuery);
+            return regionMatch && categoryMatch && searchMatch;
+        });
+    };
+
+    const getCategoryIcon = (cat) => {
+        if(cat === 'beauty') return 'sparkles';
+        if(cat === 'spa') return 'droplets';
+        return 'leaf';
+    };
+
+    // Actions
+    window.setActiveTab = (tab) => { state.activeTab = tab; render(); };
+    window.setMainRegion = (region) => { state.mainRegion = region; render(); };
+    window.setMainRegionAndTab = (region, tab) => { state.mainRegion = region; state.activeTab = tab; render(); };
+    window.setSearchCategory = (cat) => { state.searchCategory = cat; render(); };
+    
+    window.toggleFavorite = (e, id) => {
+        if(e) e.stopPropagation();
+        if (state.favorites.includes(id)) {
+            state.favorites = state.favorites.filter(fid => fid !== id);
+        } else {
+            state.favorites.push(id);
+        }
+        render();
+    };
+
+    window.toggleSelectForPlan = (e, id) => {
+        if(e) e.stopPropagation();
+        if (state.selectedForPlan.includes(id)) {
+            state.selectedForPlan = state.selectedForPlan.filter(pid => pid !== id);
+        } else {
+            if (state.selectedForPlan.length < 5) state.selectedForPlan.push(id);
+        }
+        render();
+    };
+
+    window.setViewingPlace = (id) => {
+        state.viewingPlace = id ? allPlaces.find(p => p.id === id) : null;
+        render();
+    };
+
+    window.generateCourse = () => {
+        state.isPlanning = true;
+        render();
+        setTimeout(() => {
+            const selectedItems = allPlaces.filter(p => state.selectedForPlan.includes(p.id));
+            const timeline = [];
+            let currentTime = new Date();
+            currentTime.setHours(10, 0, 0);
+
+            selectedItems.forEach((spot, idx) => {
+                const sTime = currentTime.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+                currentTime.setMinutes(currentTime.getMinutes() + 120);
+                const eTime = currentTime.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+                timeline.push({ type: 'spot', ...spot, timeRange: `${sTime} - ${eTime}` });
+                
+                if (idx < selectedItems.length - 1) {
+                    timeline.push({ type: 'travel', duration: 30 });
+                    currentTime.setMinutes(currentTime.getMinutes() + 30);
+                }
+            });
+            state.generatedCourse = timeline;
+            state.isPlanning = false;
+            render();
+        }, 1200);
+    };
+
+    window.savePlan = () => {
+        const newPlan = { 
+            id: Date.now(), 
+            title: `${state.selectedForPlan.length}개 휴식처 치유 여행`, 
+            date: new Date().toLocaleDateString(), 
+            course: state.generatedCourse 
+        };
+        state.savedPlans = [newPlan, ...state.savedPlans];
+        state.generatedCourse = null;
+        state.activeTab = 'profile';
+        render();
+    };
+
+    window.clearCourse = () => {
+        state.generatedCourse = null;
+        render();
+    }
+
+    // Render Functions
+    const renderHome = () => {
+        const marqueeItems = [1, 2, 3, 4].map(() => `
+            <div class="flex items-center mx-4">
+                <span class="text-[11px] font-bold text-emerald-800 tracking-tight mr-4 opacity-80">맑고 깨끗한 숨을 찾아 떠나는 여행</span>
+                <i data-lucide="leaf" class="text-emerald-500 mr-4 w-3 h-3"></i>
+                <span class="text-[11px] font-bold text-emerald-800 tracking-tight mr-4 opacity-80">오직 당신만을 위한 투명한 치유의 시간</span>
+                <i data-lucide="wind" class="text-blue-400 mr-4 w-3 h-3"></i>
+            </div>
+        `).join('');
+
+        const regionGrid = regions.map(reg => `
+            <div onclick="window.setMainRegionAndTab('${reg.id}', 'explore')" 
+                 class="p-3.5 rounded-[1.8rem] glass transition-all text-center cursor-pointer active:scale-95 flex flex-col items-center justify-center ${state.mainRegion === reg.id ? 'bg-emerald-600/80 text-white border-emerald-400 shadow-xl shadow-emerald-200/50' : 'text-slate-600 hover:bg-white/60 shadow-sm'}">
+                <div class="w-8 h-8 rounded-xl flex items-center justify-center mb-2 ${state.mainRegion === reg.id ? 'bg-white/20 text-white' : 'glass-dark text-emerald-600'}">
+                    <i data-lucide="${reg.icon}" class="w-[18px] h-[18px]"></i>
+                </div>
+                <h4 class="text-[9.5px] font-bold tracking-tighter whitespace-nowrap">${reg.label}</h4>
+            </div>
+        `).join('');
+
+        const selectedPlacesHtml = state.selectedForPlan.length > 0 
+            ? `<div class="flex space-x-3 overflow-x-auto no-scrollbar pb-2">
+                ${state.selectedForPlan.map(id => {
+                    const p = allPlaces.find(x => x.id === id);
+                    return `
+                        <div onclick="window.setViewingPlace('${p.id}')" class="min-w-[125px] glass-dark p-4 rounded-3xl border border-white/40 flex flex-col items-center text-center group cursor-pointer active:scale-95 transition-all">
+                            <div class="w-12 h-12 glass rounded-2xl flex items-center justify-center mb-3 shadow-sm text-emerald-600 group-hover:scale-110 transition-transform">
+                                <i data-lucide="${getCategoryIcon(p.category)}" class="w-5 h-5"></i>
+                            </div>
+                            <span class="text-[10px] font-bold text-slate-700 truncate w-full">${p.name}</span>
+                        </div>
+                    `;
+                }).join('')}
+               </div>`
+            : `<div class="text-center py-10 glass-dark rounded-[2.5rem] border-2 border-dashed border-white/40">
+                <p class="text-[11px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed">장소를 담아 당신만의<br/>치유 루트를 만드세요</p>
+               </div>`;
+
+        return `
+            <div class="slide-in-up">
+                <section class="pt-6 pb-2">
+                    <div class="overflow-hidden glass-dark py-3.5 border-y border-white/20 mb-6">
+                        <div class="animate-marquee whitespace-nowrap flex items-center">${marqueeItems}</div>
+                    </div>
+                </section>
+                <div class="px-6 space-y-8">
+                    <div class="grid grid-cols-4 gap-3">${regionGrid}</div>
+                    
+                    <section class="glass rounded-[3.5rem] p-8 relative overflow-hidden shadow-xl border border-white/60">
+                        <div class="absolute -top-12 -right-12 w-48 h-48 bg-emerald-300/20 rounded-full blur-3xl"></div>
+                        <div class="flex items-center space-x-2 mb-5">
+                            <span class="text-[10px] font-black text-emerald-600 tracking-[0.2em] uppercase bg-emerald-100/50 px-3 py-1 rounded-full">이달의 추천 지역</span>
+                            <span class="bg-emerald-500 text-white text-[8px] font-black px-2.5 py-0.5 rounded-md shadow-sm">강원도</span>
+                        </div>
+                        <h3 class="text-2xl font-black text-slate-800 mb-4 leading-tight tracking-tight">해발 1,000m에서<br/>마주하는 맑은 휴식</h3>
+                        <p class="text-[12px] text-slate-500 leading-relaxed font-medium mb-8 opacity-80">청정 강원의 숲과 고산 지대에서만 느낄 수 있는<br/>투명한 공기 속에서 명상을 즐겨보세요.</p>
+                        <button onclick="window.setMainRegionAndTab('강원', 'explore')" class="w-full py-4 bg-emerald-900/90 text-white rounded-2xl text-[12px] font-black flex items-center justify-center group transition-all shadow-lg shadow-emerald-900/20 active:scale-95">
+                            강원도 명소 전체보기 <i data-lucide="arrow-right" class="w-3.5 h-3.5 ml-2 group-hover:translate-x-1 transition-transform"></i>
+                        </button>
+                    </section>
+
+                    <section class="glass p-8 rounded-[3.5rem] shadow-lg border border-white/60">
+                        <div class="flex justify-between items-center mb-6 px-1">
+                            <h4 class="font-black text-slate-800 text-sm flex items-center"><i data-lucide="shopping-bag" class="w-3.5 h-3.5 mr-2 text-emerald-500"></i> 내 일정 바구니</h4>
+                            <span class="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">${state.selectedForPlan.length}/5 장소</span>
+                        </div>
+                        ${selectedPlacesHtml}
+                    </section>
+                </div>
+            </div>
+        `;
+    };
+
+    const renderExplore = () => {
+        const filtered = getFilteredPlaces();
+        
+        const regionSelector = regions.map(r => `
+            <div onclick="window.setMainRegion('${r.id}')"
+                 class="px-5 py-3 rounded-2xl text-[11px] font-black cursor-pointer transition-all whitespace-nowrap shadow-sm ${state.mainRegion === r.id ? 'bg-slate-900 text-white' : 'glass text-slate-400 border border-white/50'}">
+                ${r.label}
+            </div>
+        `).join('');
+
+        const categories = ["전체", "spa", "beauty", "yoga", "forest"];
+        const categoryLabels = { 'spa': '스파', 'beauty': '뷰티', 'yoga': '힐링', 'forest': '자연', '전체': '카테고리' };
+        const categorySelector = categories.map(c => `
+            <button onclick="window.setSearchCategory('${c}')" 
+                    class="px-4 py-2 rounded-xl text-[10px] font-bold transition-all whitespace-nowrap uppercase tracking-widest ${state.searchCategory === c ? 'bg-emerald-500/80 text-white shadow-md' : 'glass-dark text-slate-500'}">
+                ${categoryLabels[c]}
+            </button>
+        `).join('');
+
+        const placesHtml = filtered.length > 0 ? filtered.map(place => {
+            const isSelected = state.selectedForPlan.includes(place.id);
+            return `
+                <div onclick="window.setViewingPlace('${place.id}')" class="glass p-5 rounded-[2.8rem] shadow-sm border border-white/60 relative cursor-pointer active:scale-98 transition-all hover:border-emerald-300 group">
+                    <div class="flex items-center space-x-5">
+                        <div class="w-16 h-16 rounded-[1.8rem] flex items-center justify-center glass-dark text-emerald-600 group-hover:bg-emerald-50 transition-colors">
+                            <i data-lucide="${getCategoryIcon(place.category)}" class="w-6 h-6"></i>
+                        </div>
+                        <div class="flex-1 pr-12">
+                            <div class="flex items-center space-x-2 mb-1">
+                                <p class="text-[8px] font-black text-emerald-600 uppercase tracking-widest">${place.region}</p>
+                                <span class="text-[8px] text-slate-300">|</span>
+                                <p class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">${place.source}</p>
+                            </div>
+                            <h4 class="font-bold text-slate-800 text-[13px] truncate tracking-tight">${place.name}</h4>
+                            <div class="flex items-center mt-2.5">
+                                <p class="text-[10px] text-slate-400 flex items-center font-medium"><i data-lucide="map-pin" class="w-[11px] h-[11px] mr-1 text-emerald-400"></i> ${place.sub}</p>
+                                <div class="flex items-center ml-4 text-amber-500 text-[10px] font-bold">
+                                    <i data-lucide="star" class="w-[11px] h-[11px] mr-1 fill-current"></i> ${place.score}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick="window.toggleSelectForPlan(event, '${place.id}')" class="absolute top-1/2 -translate-y-1/2 right-6 p-4 rounded-2xl transition-all shadow-sm ${isSelected ? 'bg-emerald-500 text-white shadow-emerald-200' : 'glass-dark text-slate-300'}">
+                        <i data-lucide="bookmark" class="w-[15px] h-[15px] ${isSelected ? 'fill-current' : ''}"></i>
+                    </button>
+                </div>
+            `;
+        }).join('') : `
+            <div class="text-center py-20 glass rounded-[3.5rem] border border-white/40 border-dashed">
+                <i data-lucide="alert-circle" class="mx-auto w-9 h-9 text-emerald-200 mb-4"></i>
+                <p class="text-xs text-slate-400 font-bold uppercase tracking-widest">장소를 찾을 수 없습니다</p>
+            </div>
+        `;
+
+        return `
+            <div class="p-6 fade-in">
+                <div class="mb-8 space-y-6">
+                    <div class="flex space-x-2 overflow-x-auto no-scrollbar pb-1">${regionSelector}</div>
+                    <div class="flex space-x-2 overflow-x-auto no-scrollbar pb-1">${categorySelector}</div>
+                </div>
+                <div class="space-y-4">${placesHtml}</div>
+            </div>
+        `;
+    };
+
+    const renderMap = () => {
+        if (!state.generatedCourse) {
+            const selectedListHtml = state.selectedForPlan.length > 0 
+                ? state.selectedForPlan.map(id => {
+                    const p = allPlaces.find(x => x.id === id);
+                    return `
+                        <div class="flex items-center justify-between p-4 glass-dark rounded-[1.8rem] border border-white/40 group">
+                            <div class="flex items-center">
+                                <div class="w-10 h-10 rounded-xl glass text-emerald-600 flex items-center justify-center mr-4 shadow-sm group-hover:scale-105 transition-transform">
+                                    <i data-lucide="${getCategoryIcon(p.category)}" class="w-4 h-4"></i>
+                                </div>
+                                <div>
+                                    <p class="text-[11px] font-bold text-slate-800">${p.name}</p>
+                                    <p class="text-[9px] text-slate-400 uppercase font-black tracking-wider mt-0.5">${p.region} · ${p.sub}</p>
+                                </div>
+                            </div>
+                            <button onclick="window.toggleSelectForPlan(event, '${id}')" class="p-2 text-slate-300 hover:text-red-400 transition-colors">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    `;
+                }).join('') 
+                : `<div class="text-center py-12 glass-dark rounded-[2.5rem] border-2 border-dashed border-white/30">
+                    <p class="text-[11px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed opacity-60">탐색 탭에서 당신의 휴식처를<br/>먼저 담아주세요.</p>
+                   </div>`;
+
+            return `
+                <div class="p-6 fade-in">
+                    <div class="space-y-8">
+                        <div class="px-2">
+                            <h2 class="text-2xl font-black text-slate-800 tracking-tight">투명한 웰니스 루트</h2>
+                            <p class="text-[12px] text-slate-500 mt-2 font-medium opacity-70">담아두신 명소를 엮어 가장 맑은 동선을 설계합니다.</p>
+                        </div>
+                        <div class="glass p-8 rounded-[3.5rem] shadow-sm border border-white/60 space-y-4">
+                            <div class="flex justify-between items-center mb-3">
+                                <span class="text-[10px] font-black text-slate-400 tracking-[0.2em] uppercase">My Selection</span>
+                                <span class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">${state.selectedForPlan.length}/5 장소</span>
+                            </div>
+                            ${selectedListHtml}
+                        </div>
+                        <button onclick="window.generateCourse()" ${state.selectedForPlan.length === 0 ? 'disabled' : ''} 
+                                class="w-full py-6 rounded-[2.8rem] font-black shadow-2xl transition-all flex justify-center items-center ${state.selectedForPlan.length === 0 ? 'glass-dark text-slate-300 cursor-not-allowed border-white/20' : 'bg-emerald-900/90 text-white shadow-emerald-200 active:scale-95'}">
+                            ${state.isPlanning ? '<i data-lucide="loader-2" class="animate-spin mr-2"></i> 루트 최적화 중...' : '치유 경로 생성하기'}
+                        </button>
+                    </div>
+                </div>
+            `;
+        } else {
+            const courseHtml = state.generatedCourse.map((item, idx) => {
+                if(item.type === 'spot') {
+                    return `
+                        <div class="relative pl-14 slide-in-left" style="animation-delay: ${idx*120}ms">
+                            <div class="absolute left-0 top-6 w-11 h-11 glass rounded-2xl shadow-lg border border-white/80 flex items-center justify-center text-emerald-600 z-10 font-black text-[13px]">${Math.floor(idx/2) + 1}</div>
+                            <div class="glass p-7 rounded-[3rem] shadow-sm border border-white/60 hover:bg-white/70 transition-colors">
+                                <div class="flex justify-between items-start">
+                                    <span class="text-[10px] font-black text-emerald-600 bg-emerald-50 px-4 py-1.5 rounded-full shadow-inner">${item.timeRange}</span>
+                                    <span class="text-[9px] text-slate-400 font-black tracking-widest uppercase opacity-70">${item.region}</span>
+                                </div>
+                                <h4 class="font-bold text-slate-800 text-[15px] mt-4 tracking-tight">${item.name}</h4>
+                                <p class="text-[11px] text-slate-500 mt-2 font-medium flex items-center opacity-80"><i data-lucide="map-pin" class="w-3 h-3 mr-1.5 text-emerald-400"></i> ${item.addr}</p>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    return `
+                        <div class="relative pl-14 py-2">
+                            <div class="absolute left-[21px] top-0 bottom-0 w-[1.5px] bg-emerald-200/40 border-dashed border-l"></div>
+                            <div class="flex items-center space-x-3 text-[10px] font-black text-emerald-600/60 px-5 py-2.5 glass-dark rounded-2xl w-max border border-white/20">
+                                <i data-lucide="car" class="w-[13px] h-[13px]"></i> <span>약 ${item.duration}분 소요 예상</span>
+                            </div>
+                        </div>
+                    `;
+                }
+            }).join('');
+
+            return `
+                <div class="p-6 fade-in space-y-8 pb-24">
+                    <div class="flex justify-between items-center px-2">
+                        <h2 class="text-2xl font-black tracking-tight">여정 타임라인</h2>
+                        <button onclick="window.clearCourse()" class="p-3 glass rounded-full text-slate-400 shadow-sm hover:text-slate-600 transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+                    </div>
+                    <div class="relative ml-2 space-y-6">${courseHtml}</div>
+                    <div class="pt-8 px-2">
+                        <button onclick="window.savePlan()" class="w-full py-5 bg-emerald-900/90 text-white rounded-[2.5rem] font-bold flex items-center justify-center shadow-xl shadow-emerald-900/20 active:scale-95 transition-all">
+                            <i data-lucide="save" class="w-[18px] h-[18px] mr-2.5"></i> 현재 루트 저장하기
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+    };
+
+    const renderProfile = () => {
+        const favHtml = state.favorites.length > 0 ? state.favorites.map(id => {
+            const p = allPlaces.find(x => x.id === id);
+            return `
+                <div onclick="window.setViewingPlace('${id}')" class="glass p-5 rounded-[2.5rem] border border-white/60 shadow-sm text-center active:scale-95 transition-all group hover:bg-white/60 cursor-pointer">
+                    <div class="w-12 h-12 rounded-2xl glass-dark text-emerald-500 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform shadow-inner">
+                        <i data-lucide="${getCategoryIcon(p.category)}" class="w-[22px] h-[22px]"></i>
+                    </div>
+                    <p class="text-[11px] font-bold text-slate-800 truncate">${p.name}</p>
+                    <p class="text-[9px] text-emerald-600/50 mt-1.5 font-black uppercase tracking-wider">${p.region}</p>
+                </div>
+            `;
+        }).join('') : `
+            <div class="col-span-2 py-16 glass-dark rounded-[3.5rem] text-center border-2 border-dashed border-white/30">
+                <p class="text-[11px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed opacity-60">찜한 장소가 없습니다.</p>
+            </div>
+        `;
+
+        return `
+            <div class="p-6 fade-in space-y-12">
+                <div class="flex items-center space-x-6 glass p-8 rounded-[3.8rem] shadow-lg border border-white/80">
+                    <div class="w-22 h-22 p-4 glass border-2 border-white/80 rounded-[2.8rem] shadow-xl overflow-hidden">
+                        <div class="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-400 via-sky-400 to-blue-500 flex items-center justify-center text-white text-2xl font-black">SH</div>
+                    </div>
+                    <div>
+                        <div class="flex items-center">
+                            <h3 class="text-xl font-black text-slate-800 tracking-tight">전국유람님</h3>
+                            <span class="ml-2.5 bg-sky-100/60 text-sky-600 text-[9px] font-black px-3 py-1 rounded-full shadow-inner">팔도웰니스러</span>
+                        </div>
+                        <p class="text-[12px] text-slate-400 font-bold mt-2 opacity-80 italic">맑은 숨을 찾는 여행자</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 px-1">
+                    <div class="glass p-6 rounded-[2.8rem] border border-white/60 text-center flex flex-col items-center">
+                        <i data-lucide="heart" class="w-5 h-5 text-pink-400 mb-3 fill-current"></i>
+                        <span class="text-2xl font-black text-slate-800">${state.favorites.length}</span>
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">찜한 명소</span>
+                    </div>
+                    <div class="glass p-6 rounded-[2.8rem] border border-white/60 text-center flex flex-col items-center">
+                        <i data-lucide="calendar" class="w-5 h-5 text-emerald-500 mb-3"></i>
+                        <span class="text-2xl font-black text-slate-800">${state.savedPlans.length}</span>
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">저장한 루트</span>
+                    </div>
+                </div>
+
+                <section>
+                    <h4 class="text-sm font-black text-slate-800 mb-6 px-3 flex items-center tracking-tight">
+                        <i data-lucide="bookmark" class="w-[18px] h-[18px] mr-2.5 text-emerald-500 fill-current"></i> 최근 찜한 장소
+                    </h4>
+                    <div class="grid grid-cols-2 gap-4">${favHtml}</div>
+                </section>
+            </div>
+        `;
+    };
+
+    const renderModal = () => {
+        if (!state.viewingPlace) return '';
+        
+        const p = state.viewingPlace;
+        const inPlan = state.selectedForPlan.includes(p.id);
+        const inFav = state.favorites.includes(p.id);
+
+        return `
+            <div class="fixed inset-0 z-[100] flex items-end justify-center px-4 pb-12 bg-emerald-900/10 backdrop-blur-md fade-in">
+                <div class="glass w-full max-w-sm rounded-[4.5rem] overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.15)] slide-in-up border border-white/80">
+                    <div class="h-52 relative flex items-center justify-center text-white overflow-hidden bg-gradient-to-tr from-emerald-900 to-sky-900">
+                        <div class="absolute inset-0 bg-white/5 backdrop-blur-[2px]"></div>
+                        <div class="absolute top-[-20%] right-[-10%] w-48 h-48 bg-emerald-400/30 rounded-full blur-[60px]"></div>
+                        <i data-lucide="${getCategoryIcon(p.category)}" class="w-24 h-24 opacity-10 scale-150 rotate-12 absolute"></i>
+                        <button onclick="window.setViewingPlace(null)" class="absolute top-10 right-10 w-12 h-12 glass rounded-full flex items-center justify-center text-white z-20 active:scale-90 transition-transform border-white/40"><i data-lucide="x" class="w-6 h-6"></i></button>
+                        <div class="absolute bottom-10 left-12 z-20 flex space-x-3">
+                            <span class="text-[10px] font-black glass px-4 py-2 rounded-xl border border-white/30 uppercase tracking-[0.2em]">${p.category}</span>
+                            <span class="text-[10px] font-black px-4 py-2 rounded-xl uppercase tracking-[0.2em] shadow-lg bg-emerald-500/80 text-white backdrop-blur-md">${p.region}</span>
+                        </div>
+                    </div>
+                    <div class="p-12">
+                        <h3 class="text-2xl font-black text-slate-800 leading-tight mb-5 tracking-tight">${p.name}</h3>
+                        <div class="glass-dark p-7 rounded-[3rem] mb-10 border border-white/40">
+                            <p class="text-[14px] text-slate-600 leading-relaxed font-medium opacity-90">${p.desc}</p>
+                            <div class="h-[1px] bg-emerald-900/10 w-full my-6 opacity-20"></div>
+                            <p class="text-[11px] text-slate-500 flex items-center font-bold italic"><i data-lucide="map-pin" class="w-[15px] h-[15px] mr-2 text-emerald-500 opacity-60"></i> ${p.addr}</p>
+                        </div>
+                        <div class="flex space-x-4">
+                            <button onclick="window.toggleSelectForPlan(event, '${p.id}'); window.setViewingPlace(null);" 
+                                class="flex-1 py-5 rounded-[2.2rem] font-black text-[13px] transition-all shadow-xl shadow-emerald-900/5 ${inPlan ? 'glass-dark text-slate-400 border-white/30' : 'bg-emerald-900/90 text-white active:scale-95'}">
+                                ${inPlan ? '루트에서 제외' : '여정에 추가하기'}
+                            </button>
+                            <button onclick="window.toggleFavorite(event, '${p.id}')" 
+                                class="w-18 px-5 py-5 rounded-[2.2rem] flex items-center justify-center border transition-all ${inFav ? 'glass border-pink-100 text-pink-500 shadow-inner' : 'glass-dark border-white/30 text-slate-300 hover:text-pink-300'}">
+                                <i data-lucide="heart" class="w-[22px] h-[22px] ${inFav ? 'fill-current' : ''}"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    };
+
+    const renderNav = () => {
+        const tabs = [
+            { id: 'home', icon: 'wind', label: 'HOME' },
+            { id: 'explore', icon: 'filter', label: 'EXPLORE' },
+            { id: 'map', icon: 'navigation', label: 'PLAN' },
+            { id: 'profile', icon: 'user', label: 'MY' }
+        ];
+
+        return tabs.map(tab => `
+            <button onclick="window.setActiveTab('${tab.id}')" class="flex flex-col items-center justify-center w-14 h-14 rounded-full transition-all duration-500 ${state.activeTab === tab.id ? 'bg-emerald-900 text-white shadow-lg scale-110' : 'text-slate-400 hover:text-emerald-700/60'}">
+                <i data-lucide="${tab.icon}" class="w-[22px] h-[22px]"></i>
+                ${state.activeTab === tab.id ? `<span class="text-[7px] mt-1 font-black tracking-widest fade-in">${tab.label}</span>` : ''}
+            </button>
+        `).join('');
+    };
+
+    // Main Render Controller
+    const render = () => {
+        const contentArea = document.getElementById('content-area');
+        
+        switch(state.activeTab) {
+            case 'home': contentArea.innerHTML = renderHome(); break;
+            case 'explore': contentArea.innerHTML = renderExplore(); break;
+            case 'map': contentArea.innerHTML = renderMap(); break;
+            case 'profile': contentArea.innerHTML = renderProfile(); break;
+        }
+
+        document.getElementById('modal-area').innerHTML = renderModal();
+        document.getElementById('nav-area').innerHTML = renderNav();
+        
+        // Re-initialize Lucide Icons after DOM update
+        lucide.createIcons();
+    };
+
+    // Initialize App
+    document.addEventListener('DOMContentLoaded', () => {
+        render();
+    });
+
+</script>
+</body>
+</html>
+

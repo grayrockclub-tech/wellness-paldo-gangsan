@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   BedDouble,
   Car,
@@ -263,6 +264,12 @@ export default function Home() {
             >
               둘러보기 (게스트 모드)
             </button>
+            <Link
+              href="/desktop"
+              className="block w-full text-xs font-bold text-slate-500 underline underline-offset-4 transition-colors hover:text-slate-800"
+            >
+              모니터용 화면 보기
+            </Link>
           </div>
         </div>
       </div>

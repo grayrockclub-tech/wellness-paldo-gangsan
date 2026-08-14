@@ -1,0 +1,735 @@
+"use client";
+
+import {
+  BedDouble,
+  Car,
+  CheckCircle2,
+  Filter,
+  Footprints,
+  Leaf,
+  Loader2,
+  Map,
+  MapPin,
+  Navigation,
+  Save,
+  Search,
+  SlidersHorizontal,
+  Star,
+  Utensils,
+  X,
+} from "lucide-react";
+import Link from "next/link";
+import { useMemo, useState } from "react";
+
+const GW_GREEN = "#0DB14B";
+const GW_BLUE = "#005BAA";
+
+type PlaceCategory = "spot" | "food" | "stay";
+type MainCategoryFilter = "all" | PlaceCategory;
+type SubCategoryFilter =
+  | "전체"
+  | "forest"
+  | "yoga"
+  | "meditation"
+  | "healthy"
+  | "local"
+  | "resort"
+  | "wellness"
+  | "healing"
+  | "hotel";
+type TravelMode = "walk" | "drive";
+type PlanIntensity = "relaxed" | "dense";
+type PlanMode = "auto" | "semi-auto";
+
+type Place = {
+  id: string;
+  region: string;
+  category: PlaceCategory;
+  subCategory: Exclude<SubCategoryFilter, "전체">;
+  name: string;
+  addr: string;
+  desc: string;
+  score: number;
+  lat: number;
+  lng: number;
+};
+
+type TravelItem = {
+  type: "travel";
+  duration: number;
+  travelType: TravelMode;
+};
+
+type PlaceCourseItem = Place & {
+  type: PlaceCategory;
+  timeRange: string;
+};
+
+type CourseItem = TravelItem | PlaceCourseItem;
+
+const PLACES: Place[] = [
+  { id: "gw-1", region: "평창", category: "spot", subCategory: "forest", name: "용평리조트 발왕산 기 스카이워크", addr: "강원도 평창군 대관령면 올림픽로 715", desc: "해발 1,458m 정상에서 즐기는 산림욕과 맑은 공기.", score: 4.8, lat: 37.6433, lng: 128.68 },
+  { id: "gw-2", region: "정선", category: "spot", subCategory: "yoga", name: "파크로쉬 리조트앤웰니스", addr: "강원도 정선군 북평면 중봉길 9-12", desc: "요가와 명상, 숙면에 최적화된 프리미엄 웰니스 센터.", score: 4.9, lat: 37.4722, lng: 128.6541 },
+  { id: "gw-3", region: "홍천", category: "spot", subCategory: "meditation", name: "힐리언스 선마을", addr: "강원도 홍천군 서면 종자산길 122", desc: "디지털 디톡스와 함께하는 진정한 쉼, 명상 프로그램.", score: 4.9, lat: 37.6681, lng: 127.6536 },
+  { id: "gw-4", region: "동해", category: "spot", subCategory: "forest", name: "무릉건강숲", addr: "강원도 동해시 삼화로 455", desc: "친환경 힐링센터에서 체험하는 산림욕과 편백나무 온열요법.", score: 4.7, lat: 37.4619, lng: 129.0183 },
+  { id: "gw-5", region: "평창", category: "spot", subCategory: "meditation", name: "월정사 전나무숲길", addr: "강원도 평창군 진부면 오대산로 374-8", desc: "천년의 숲을 걸으며 심신을 정화하는 걷기 명상 코스.", score: 4.9, lat: 37.7308, lng: 128.5925 },
+  { id: "gw-6", region: "정선", category: "spot", subCategory: "forest", name: "로미지안 가든", addr: "강원도 정선군 북평면 어도원길 12", desc: "알프스를 연상케 하는 숲속 정원에서의 치유 산책.", score: 4.6, lat: 37.4241, lng: 128.6655 },
+  { id: "gw-7", region: "원주", category: "spot", subCategory: "yoga", name: "뮤지엄 산", addr: "강원도 원주시 지정면 오크밸리 2길 260", desc: "예술과 자연이 어우러진 공간에서의 명상 및 요가 프로그램.", score: 4.8, lat: 37.4219, lng: 127.8183 },
+  { id: "gw-8", region: "강릉", category: "spot", subCategory: "meditation", name: "오죽헌 한옥마을 다도체험", addr: "강원도 강릉시 죽헌길 114", desc: "고즈넉한 한옥에서 차를 마시며 즐기는 마음 챙김.", score: 4.5, lat: 37.7811, lng: 128.8808 },
+  { id: "food-1", region: "평창", category: "food", subCategory: "healthy", name: "오대산물레방아식당", addr: "강원도 평창군 진부면 오대산로 152", desc: "산채정식과 황태구이로 건강하고 담백한 한 끼를 즐기는 맛집.", score: 4.7, lat: 37.73, lng: 128.59 },
+  { id: "food-2", region: "정선", category: "food", subCategory: "local", name: "회동집", addr: "강원도 정선군 정선읍 시장로 62", desc: "곤드레밥과 메밀부침 등 강원도 향토 음식을 선보이는 정선 5일장 명소.", score: 4.8, lat: 37.38, lng: 128.66 },
+  { id: "food-3", region: "홍천", category: "food", subCategory: "healthy", name: "가리산막국수", addr: "강원도 홍천군 화촌면 가리산길 420", desc: "직접 뽑은 메밀면과 깔끔한 육수가 일품인 건강한 막국수.", score: 4.6, lat: 37.75, lng: 127.88 },
+  { id: "food-4", region: "강릉", category: "food", subCategory: "local", name: "초당할인순두부", addr: "강원도 강릉시 초당순두부길 77", desc: "동해 바닷물로 간을 맞춘 부드럽고 고소한 원조 순두부.", score: 4.7, lat: 37.79, lng: 128.91 },
+  { id: "stay-1", region: "평창", category: "stay", subCategory: "resort", name: "켄싱턴 호텔 평창", addr: "강원도 평창군 진부면 진고개로 231", desc: "대규모 프랑스 정원과 포근한 객실이 어우러진 힐링 리조트.", score: 4.8, lat: 37.72, lng: 128.58 },
+  { id: "stay-2", region: "정선", category: "stay", subCategory: "wellness", name: "파크로쉬 리조트앤웰니스 (숙박)", addr: "강원도 정선군 북평면 중봉길 9-12", desc: "깊은 산속에서 완벽한 휴식과 숙면을 제공하는 프리미엄 숙소.", score: 4.9, lat: 37.4722, lng: 128.6541 },
+  { id: "stay-3", region: "홍천", category: "stay", subCategory: "healing", name: "힐리언스 선마을 스테이", addr: "강원도 홍천군 서면 종자산길 122", desc: "자연 속에서 스마트폰을 내려놓고 깊은 잠과 휴식을 누리는 숙소.", score: 4.9, lat: 37.6681, lng: 127.6536 },
+  { id: "stay-4", region: "강릉", category: "stay", subCategory: "hotel", name: "씨마크 호텔", addr: "강원도 강릉시 해안로406번길 2", desc: "바다를 품은 인피니티 풀과 최고급 시설을 갖춘 해안 럭셔리 호텔.", score: 4.9, lat: 37.8, lng: 128.92 },
+];
+
+const subCategoryMap: Record<PlaceCategory, SubCategoryFilter[]> = {
+  spot: ["전체", "forest", "yoga", "meditation"],
+  food: ["전체", "healthy", "local"],
+  stay: ["전체", "resort", "wellness", "healing", "hotel"],
+};
+
+export default function DesktopPage() {
+  const [mainCategoryFilter, setMainCategoryFilter] = useState<MainCategoryFilter>("all");
+  const [subCategoryFilter, setSubCategoryFilter] = useState<SubCategoryFilter>("전체");
+  const [mustGoSpots, setMustGoSpots] = useState<string[]>([]);
+  const [selectedPlace, setSelectedPlace] = useState<Place>(PLACES[0]);
+  const [travelMode, setTravelMode] = useState<TravelMode>("walk");
+  const [planIntensity, setPlanIntensity] = useState<PlanIntensity>("relaxed");
+  const [planMode, setPlanMode] = useState<PlanMode>("auto");
+  const [includeFoodAndStay, setIncludeFoodAndStay] = useState(true);
+  const [isPlanning, setIsPlanning] = useState(false);
+  const [generatedCourse, setGeneratedCourse] = useState<CourseItem[] | null>(null);
+
+  const filteredPlaces = useMemo(() => {
+    return PLACES.filter((place) => {
+      const matchMain = mainCategoryFilter === "all" || place.category === mainCategoryFilter;
+      const matchSub = subCategoryFilter === "전체" || place.subCategory === subCategoryFilter;
+      return matchMain && matchSub;
+    });
+  }, [mainCategoryFilter, subCategoryFilter]);
+  const subCategoryOptions: SubCategoryFilter[] =
+    mainCategoryFilter === "all" ? ["전체"] : subCategoryMap[mainCategoryFilter];
+
+  const selectedMustGoPlaces = PLACES.filter((place) => mustGoSpots.includes(place.id));
+
+  const toggleMustGoSpot = (id: string) => {
+    setMustGoSpots((prev) => {
+      if (prev.includes(id)) return prev.filter((placeId) => placeId !== id);
+      if (prev.length >= 3) {
+        alert("꼭 가고 싶은 장소는 최대 3개까지 선택 가능합니다.");
+        return prev;
+      }
+      return [...prev, id];
+    });
+  };
+
+  const generateCourse = () => {
+    setIsPlanning(true);
+    window.setTimeout(() => {
+      const timeline = buildCourse({
+        mustGoIds: mustGoSpots,
+        planIntensity,
+        planMode,
+        includeFoodAndStay,
+        travelMode,
+      });
+      setGeneratedCourse(timeline);
+      setIsPlanning(false);
+    }, 900);
+  };
+
+  return (
+    <main className="min-h-screen bg-[#eef3ee] text-[#17211b]">
+      <div className="mx-auto grid min-h-screen max-w-[1600px] grid-cols-[268px_minmax(0,1fr)_420px]">
+        <aside className="border-r border-[#d3dfd4] bg-[#fbfcf8] px-6 py-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl text-white" style={{ backgroundColor: GW_BLUE }}>
+              <Leaf size={26} />
+            </div>
+            <div>
+              <h1 className="text-lg font-black tracking-normal" style={{ color: GW_BLUE }}>
+                웰니스 강원
+              </h1>
+              <p className="text-xs font-bold text-[#5f6f66]">원스톱 치유 여행</p>
+            </div>
+          </div>
+
+          <nav className="mt-10 grid gap-2">
+            {[
+              { id: "all", label: "전체 탐색", icon: Search },
+              { id: "spot", label: "웰니스 스팟", icon: Leaf },
+              { id: "food", label: "건강 맛집", icon: Utensils },
+              { id: "stay", label: "힐링 숙소", icon: BedDouble },
+            ].map((item) => {
+              const Icon = item.icon;
+              const active = mainCategoryFilter === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setMainCategoryFilter(item.id as MainCategoryFilter);
+                    setSubCategoryFilter("전체");
+                  }}
+                  className={`flex items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-black transition ${
+                    active ? "text-white shadow-sm" : "text-[#526158] hover:bg-white"
+                  }`}
+                  style={active ? { backgroundColor: GW_BLUE } : {}}
+                >
+                  <Icon size={18} />
+                  {item.label}
+                </button>
+              );
+            })}
+          </nav>
+
+          <section className="mt-8 rounded-lg border border-[#d3dfd4] bg-white p-4">
+            <p className="flex items-center gap-2 text-sm font-black" style={{ color: GW_BLUE }}>
+              <Filter size={16} />
+              세부 필터
+            </p>
+            <div className="mt-4 grid gap-2">
+              {subCategoryOptions.map((category) => (
+                <button
+                  key={category}
+                  onClick={() => setSubCategoryFilter(category)}
+                  className={`rounded-lg border px-3 py-2 text-left text-xs font-bold ${
+                    subCategoryFilter === category ? "border-[#0DB14B] bg-[#ebf8ef] text-[#087a36]" : "border-[#dce6dc] text-[#617168]"
+                  }`}
+                >
+                  {getSubCategoryLabel(category)}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="mt-6 rounded-lg border border-[#d3dfd4] bg-white p-4">
+            <p className="text-sm font-black" style={{ color: GW_BLUE }}>
+              꼭 가고 싶은 장소
+            </p>
+            <p className="mt-1 text-xs font-bold text-[#66756c]">{mustGoSpots.length}/3 선택됨</p>
+            <div className="mt-4 grid gap-2">
+              {selectedMustGoPlaces.length > 0 ? (
+                selectedMustGoPlaces.map((place) => (
+                  <button
+                    key={place.id}
+                    onClick={() => toggleMustGoSpot(place.id)}
+                    className="flex items-center justify-between rounded-lg bg-[#f2f6f1] px-3 py-2 text-left text-xs font-bold text-[#2f4037]"
+                  >
+                    <span className="truncate">{place.name}</span>
+                    <X size={14} />
+                  </button>
+                ))
+              ) : (
+                <p className="rounded-lg bg-[#f2f6f1] px-3 py-4 text-xs leading-5 text-[#6b786f]">
+                  장소 카드의 체크 버튼으로 필수 장소를 지정할 수 있습니다.
+                </p>
+              )}
+            </div>
+          </section>
+        </aside>
+
+        <section className="grid grid-rows-[auto_minmax(0,1fr)]">
+          <header className="flex items-center justify-between border-b border-[#d3dfd4] bg-white px-8 py-5">
+            <div>
+              <p className="text-sm font-black" style={{ color: GW_GREEN }}>
+                강원특별자치도 웰니스 루트
+              </p>
+              <h2 className="mt-1 text-3xl font-black tracking-normal" style={{ color: GW_BLUE }}>
+                스팟·맛집·숙소를 한 화면에서 설계
+              </h2>
+            </div>
+            <div className="flex items-center gap-3 text-sm">
+              <Link href="/" className="rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 font-bold text-[#526158]">
+                모바일 화면
+              </Link>
+              <div className="rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 font-bold">
+                TourAPI Mock <span className="ml-2 text-[#087a36]">16건</span>
+              </div>
+            </div>
+          </header>
+
+          <div className="grid min-h-0 grid-rows-[470px_minmax(0,1fr)] gap-5 p-6">
+            <section className="grid grid-cols-[minmax(0,1fr)_360px] gap-5">
+              <KakaoMapMock selectedPlace={selectedPlace} generatedCourse={generatedCourse} />
+
+              <PlaceDetailPanel
+                place={selectedPlace}
+                selected={mustGoSpots.includes(selectedPlace.id)}
+                onToggle={() => toggleMustGoSpot(selectedPlace.id)}
+              />
+            </section>
+
+            <section className="min-h-0 rounded-lg border border-[#d3dfd4] bg-white">
+              <div className="flex items-center justify-between border-b border-[#e1e8df] px-5 py-4">
+                <div>
+                  <h3 className="text-lg font-black">장소 탐색</h3>
+                  <p className="mt-1 text-xs font-bold text-[#66756c]">웰니스 스팟, 건강 맛집, 힐링 숙소를 함께 선택합니다.</p>
+                </div>
+                <span className="rounded-lg bg-[#ebf8ef] px-3 py-2 text-xs font-black text-[#087a36]">{filteredPlaces.length}개</span>
+              </div>
+              <div className="grid max-h-[calc(100vh-646px)] min-h-[230px] grid-cols-2 gap-3 overflow-auto p-4 xl:grid-cols-3">
+                {filteredPlaces.map((place) => (
+                  <PlaceCard
+                    key={place.id}
+                    place={place}
+                    selected={selectedPlace.id === place.id}
+                    mustGo={mustGoSpots.includes(place.id)}
+                    onOpen={() => setSelectedPlace(place)}
+                    onToggle={() => toggleMustGoSpot(place.id)}
+                  />
+                ))}
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <aside className="border-l border-[#d3dfd4] bg-[#fbfcf8] px-6 py-6">
+          <section className="rounded-lg border border-[#d3dfd4] bg-white p-5">
+            <div className="flex items-center justify-between">
+              <h3 className="flex items-center gap-2 text-lg font-black" style={{ color: GW_BLUE }}>
+                <SlidersHorizontal size={18} />
+                원스톱 루트 설계
+              </h3>
+              <span className="rounded-lg bg-[#eaf2ff] px-3 py-1 text-xs font-black" style={{ color: GW_BLUE }}>
+                MVP
+              </span>
+            </div>
+
+            <ControlGroup title="설계 방식">
+              <SegmentedControl
+                items={[
+                  { id: "auto", label: "전체 자동" },
+                  { id: "semi-auto", label: "반자동" },
+                ]}
+                value={planMode}
+                onChange={(value) => setPlanMode(value as PlanMode)}
+              />
+            </ControlGroup>
+
+            <ControlGroup title="이동 수단">
+              <div className="grid grid-cols-2 gap-2">
+                <ModeButton active={travelMode === "walk"} icon={<Footprints size={18} />} label="뚜벅이" onClick={() => setTravelMode("walk")} />
+                <ModeButton active={travelMode === "drive"} icon={<Car size={18} />} label="자동차" onClick={() => setTravelMode("drive")} />
+              </div>
+            </ControlGroup>
+
+            <ControlGroup title="여행 강도">
+              <SegmentedControl
+                items={[
+                  { id: "relaxed", label: "여유롭게" },
+                  { id: "dense", label: "빽빽하게" },
+                ]}
+                value={planIntensity}
+                onChange={(value) => setPlanIntensity(value as PlanIntensity)}
+              />
+            </ControlGroup>
+
+            <label className="mt-5 flex items-center justify-between rounded-lg border border-[#dce6dc] bg-[#f7faf6] px-4 py-3">
+              <span>
+                <span className="block text-sm font-black">맛집 및 숙소 자동 포함</span>
+                <span className="mt-1 block text-xs font-bold text-[#66756c]">건강 맛집과 힐링 숙소를 함께 배치</span>
+              </span>
+              <input
+                type="checkbox"
+                checked={includeFoodAndStay}
+                onChange={(event) => setIncludeFoodAndStay(event.target.checked)}
+                className="h-5 w-5 accent-[#0DB14B]"
+              />
+            </label>
+
+            <button
+              onClick={generateCourse}
+              disabled={isPlanning || (planMode === "semi-auto" && mustGoSpots.length === 0)}
+              className="mt-5 flex w-full items-center justify-center rounded-lg px-4 py-4 text-sm font-black text-white shadow-sm disabled:bg-slate-300"
+              style={!isPlanning && !(planMode === "semi-auto" && mustGoSpots.length === 0) ? { backgroundColor: GW_BLUE } : {}}
+            >
+              {isPlanning ? (
+                <>
+                  <Loader2 size={17} className="mr-2 animate-spin" />
+                  루트 생성 중
+                </>
+              ) : (
+                "원스톱 루트 생성하기"
+              )}
+            </button>
+          </section>
+
+          <section className="mt-5 rounded-lg border border-[#d3dfd4] bg-white">
+            <div className="flex items-center justify-between border-b border-[#e1e8df] px-5 py-4">
+              <h3 className="text-lg font-black">생성된 일정</h3>
+              <button className="rounded-lg border border-[#dce6dc] p-2 text-[#526158]" title="저장">
+                <Save size={16} />
+              </button>
+            </div>
+            <div className="max-h-[calc(100vh-558px)] min-h-[280px] overflow-auto p-5">
+              {generatedCourse ? (
+                <Timeline course={generatedCourse} travelMode={travelMode} />
+              ) : (
+                <div className="flex min-h-[260px] flex-col items-center justify-center rounded-lg bg-[#f4f7f3] px-6 text-center">
+                  <Map size={34} className="mb-3 text-[#9aad9f]" />
+                  <p className="text-sm font-black text-[#526158]">아직 생성된 루트가 없습니다.</p>
+                  <p className="mt-2 text-xs leading-5 text-[#75837b]">설계 조건을 고른 뒤 원스톱 루트를 생성하세요.</p>
+                </div>
+              )}
+            </div>
+          </section>
+        </aside>
+      </div>
+    </main>
+  );
+}
+
+function KakaoMapMock({ selectedPlace, generatedCourse }: { selectedPlace: Place; generatedCourse: CourseItem[] | null }) {
+  const places = generatedCourse?.filter(isPlaceCourseItem) ?? [selectedPlace];
+
+  return (
+    <div className="relative overflow-hidden rounded-lg border border-[#d3dfd4] bg-[#dce8dd]">
+      <div
+        aria-label="강원도 웰니스 지도"
+        className="absolute inset-0 bg-cover bg-center opacity-75"
+        role="img"
+        style={{
+          backgroundImage:
+            "url(https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1600&q=80)",
+        }}
+      />
+      <div className="absolute inset-0 bg-[#113524]/35" />
+      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <path d="M19 35 C31 30, 42 54, 51 48 S68 32, 79 42" fill="none" stroke="rgba(255,255,255,.78)" strokeDasharray="3 3" strokeLinecap="round" strokeWidth="0.65" />
+      </svg>
+      {places.slice(0, 5).map((place, index) => (
+        <MapMarker key={`${place.id}-${index}`} place={place} index={index} selected={place.id === selectedPlace.id} />
+      ))}
+      <div className="absolute left-5 top-5 rounded-lg bg-white/92 px-4 py-3 shadow-sm backdrop-blur">
+        <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: GW_GREEN }}>
+          Kakao Map 영역
+        </p>
+        <p className="mt-1 text-sm font-black" style={{ color: GW_BLUE }}>
+          스팟·맛집·숙소 통합 경로
+        </p>
+      </div>
+      <div className="absolute bottom-5 left-5 right-5 rounded-lg bg-white/92 p-4 shadow-sm backdrop-blur">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-black text-[#66756c]">현재 선택</p>
+            <h3 className="mt-1 text-lg font-black text-[#17211b]">{selectedPlace.name}</h3>
+            <p className="mt-1 text-sm text-[#526158]">{selectedPlace.addr}</p>
+          </div>
+          <span className="rounded-lg bg-[#ebf8ef] px-3 py-2 text-sm font-black text-[#087a36]">평점 {selectedPlace.score}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MapMarker({ place, index, selected }: { place: Place; index: number; selected: boolean }) {
+  const points = [
+    ["22%", "34%"],
+    ["42%", "55%"],
+    ["61%", "38%"],
+    ["73%", "50%"],
+    ["52%", "27%"],
+  ];
+  const [left, top] = points[index] ?? points[0];
+
+  return (
+    <div className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left, top }}>
+      <div
+        className={`flex h-11 w-11 items-center justify-center rounded-full border-4 border-white text-sm font-black text-white shadow-lg ${
+          selected ? "scale-110" : ""
+        }`}
+        style={{ backgroundColor: getCategoryColor(place.category) }}
+      >
+        {index + 1}
+      </div>
+      <div className="mt-2 whitespace-nowrap rounded-md bg-white/90 px-2 py-1 text-xs font-black text-[#2f4037] shadow-sm">{place.region}</div>
+    </div>
+  );
+}
+
+function PlaceDetailPanel({ place, selected, onToggle }: { place: Place; selected: boolean; onToggle: () => void }) {
+  const Icon = place.category === "food" ? Utensils : place.category === "stay" ? BedDouble : Leaf;
+
+  return (
+    <article className="rounded-lg border border-[#d3dfd4] bg-white p-5">
+      <div className="flex items-start justify-between">
+        <div className="flex h-14 w-14 items-center justify-center rounded-lg text-white" style={{ backgroundColor: getCategoryColor(place.category) }}>
+          <Icon size={26} />
+        </div>
+        <button
+          onClick={onToggle}
+          className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-black ${
+            selected ? "border-[#005BAA] text-white" : "border-[#dce6dc] text-[#526158]"
+          }`}
+          style={selected ? { backgroundColor: GW_BLUE } : {}}
+        >
+          <CheckCircle2 size={15} />
+          {selected ? "선택됨" : "꼭 가기"}
+        </button>
+      </div>
+      <div className="mt-5">
+        <span className="rounded-lg bg-[#f1f5ef] px-3 py-1 text-xs font-black text-[#526158]">{getCategoryLabel(place.category)}</span>
+        <h3 className="mt-4 text-2xl font-black leading-8">{place.name}</h3>
+        <p className="mt-3 text-sm leading-6 text-[#526158]">{place.desc}</p>
+        <p className="mt-4 flex items-start gap-2 text-sm font-bold leading-6 text-[#66756c]">
+          <MapPin size={17} className="mt-1 shrink-0" style={{ color: GW_GREEN }} />
+          {place.addr}
+        </p>
+      </div>
+      <dl className="mt-6 grid grid-cols-3 gap-3">
+        <Metric label="지역" value={place.region} />
+        <Metric label="평점" value={place.score.toFixed(1)} />
+        <Metric label="좌표" value={`${place.lat.toFixed(2)}, ${place.lng.toFixed(2)}`} />
+      </dl>
+    </article>
+  );
+}
+
+function PlaceCard({
+  place,
+  selected,
+  mustGo,
+  onOpen,
+  onToggle,
+}: {
+  place: Place;
+  selected: boolean;
+  mustGo: boolean;
+  onOpen: () => void;
+  onToggle: () => void;
+}) {
+  const Icon = place.category === "food" ? Utensils : place.category === "stay" ? BedDouble : Leaf;
+
+  return (
+    <article
+      className={`rounded-lg border bg-[#fbfcf8] p-4 transition ${selected ? "border-[#005BAA] shadow-sm" : "border-[#dce6dc] hover:border-[#9ebca7]"}`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <button onClick={onOpen} className="flex min-w-0 flex-1 items-start gap-3 text-left">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-white" style={{ backgroundColor: getCategoryColor(place.category) }}>
+            <Icon size={20} />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="rounded-md bg-white px-2 py-1 text-[11px] font-black text-[#526158]">{place.region}</span>
+              <span className="rounded-md bg-[#ebf8ef] px-2 py-1 text-[11px] font-black text-[#087a36]">{getCategoryLabel(place.category)}</span>
+            </div>
+            <h4 className="mt-3 line-clamp-2 text-sm font-black leading-5 text-[#17211b]">{place.name}</h4>
+          </div>
+        </button>
+        <button onClick={onToggle} className={`rounded-lg p-2 ${mustGo ? "text-white" : "bg-white text-[#8a978f]"}`} style={mustGo ? { backgroundColor: GW_BLUE } : {}}>
+          <CheckCircle2 size={18} />
+        </button>
+      </div>
+      <p className="mt-3 line-clamp-2 text-xs leading-5 text-[#64746b]">{place.desc}</p>
+      <div className="mt-4 flex items-center gap-1 text-xs font-black text-[#66756c]">
+        <Star size={14} className="fill-[#F59E0B] text-[#F59E0B]" />
+        {place.score.toFixed(1)}
+      </div>
+    </article>
+  );
+}
+
+function Timeline({ course, travelMode }: { course: CourseItem[]; travelMode: TravelMode }) {
+  return (
+    <div className="space-y-4">
+      {course.map((item, index) =>
+        item.type === "travel" ? (
+          <div key={`travel-${index}`} className="ml-5 flex items-center gap-2 rounded-lg border border-dashed border-[#cbd9ce] bg-[#f7faf6] px-3 py-2 text-xs font-bold text-[#526158]">
+            {item.travelType === "walk" ? <Footprints size={15} style={{ color: GW_GREEN }} /> : <Car size={15} style={{ color: GW_BLUE }} />}
+            이동 약 {item.duration}분
+          </div>
+        ) : (
+          <article key={`${item.id}-${index}`} className="relative rounded-lg border border-[#dce6dc] bg-[#fbfcf8] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <span className="rounded-md bg-white px-2 py-1 text-[11px] font-black" style={{ color: GW_BLUE }}>
+                {item.timeRange}
+              </span>
+              {travelMode === "drive" && (
+                <button className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-black text-white" style={{ backgroundColor: GW_BLUE }}>
+                  <Navigation size={12} />
+                  길안내
+                </button>
+              )}
+            </div>
+            <h4 className="mt-3 text-sm font-black leading-5">{item.name}</h4>
+            <p className="mt-2 text-xs font-bold text-[#66756c]">{getCategoryLabel(item.category)} · {item.region}</p>
+          </article>
+        ),
+      )}
+    </div>
+  );
+}
+
+function ControlGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="mt-5">
+      <p className="mb-2 text-xs font-black text-[#66756c]">{title}</p>
+      {children}
+    </div>
+  );
+}
+
+function SegmentedControl({
+  items,
+  value,
+  onChange,
+}: {
+  items: { id: string; label: string }[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 rounded-lg border border-[#dce6dc] bg-[#f5f8f4] p-1">
+      {items.map((item) => (
+        <button
+          key={item.id}
+          onClick={() => onChange(item.id)}
+          className={`rounded-md px-3 py-2 text-xs font-black ${value === item.id ? "bg-white shadow-sm" : "text-[#66756c]"}`}
+          style={value === item.id ? { color: GW_BLUE } : {}}
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ModeButton({ active, icon, label, onClick }: { active: boolean; icon: React.ReactNode; label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-3 text-xs font-black ${
+        active ? "border-[#0DB14B] bg-[#ebf8ef] text-[#087a36]" : "border-[#dce6dc] bg-[#f7faf6] text-[#66756c]"
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-[#f2f6f1] p-3">
+      <dt className="text-[11px] font-black text-[#66756c]">{label}</dt>
+      <dd className="mt-1 truncate text-sm font-black text-[#17211b]">{value}</dd>
+    </div>
+  );
+}
+
+function buildCourse({
+  mustGoIds,
+  planIntensity,
+  planMode,
+  includeFoodAndStay,
+  travelMode,
+}: {
+  mustGoIds: string[];
+  planIntensity: PlanIntensity;
+  planMode: PlanMode;
+  includeFoodAndStay: boolean;
+  travelMode: TravelMode;
+}) {
+  const spotsPool = PLACES.filter((place) => place.category === "spot");
+  const foodsPool = PLACES.filter((place) => place.category === "food");
+  const staysPool = PLACES.filter((place) => place.category === "stay");
+  const mandatory = PLACES.filter((place) => mustGoIds.includes(place.id));
+  const mandatorySpots = mandatory.filter((place) => place.category === "spot");
+  const spotCount = planIntensity === "dense" ? 3 : 2;
+  const selectedSpots =
+    planMode === "semi-auto"
+      ? [...mandatorySpots, ...spotsPool.filter((place) => !mustGoIds.includes(place.id))].slice(0, spotCount)
+      : spotsPool.slice(0, spotCount);
+  const selectedFood = mandatory.find((place) => place.category === "food") ?? foodsPool[0];
+  const selectedStay = mandatory.find((place) => place.category === "stay") ?? staysPool[1];
+  const timeline: CourseItem[] = [];
+  const currentTime = new Date();
+  currentTime.setHours(10, 0, 0);
+
+  addPlace(timeline, currentTime, selectedSpots[0], 120);
+
+  if (includeFoodAndStay && selectedFood) {
+    addTravel(timeline, currentTime, travelMode, travelMode === "drive" ? 20 : 40);
+    addPlace(timeline, currentTime, selectedFood, 90);
+  }
+
+  if (selectedSpots[1]) {
+    addTravel(timeline, currentTime, travelMode, travelMode === "drive" ? 25 : 50);
+    addPlace(timeline, currentTime, selectedSpots[1], 120);
+  }
+
+  if (planIntensity === "dense" && selectedSpots[2]) {
+    addTravel(timeline, currentTime, travelMode, travelMode === "drive" ? 20 : 40);
+    addPlace(timeline, currentTime, selectedSpots[2], 90);
+  }
+
+  if (includeFoodAndStay && selectedStay) {
+    addTravel(timeline, currentTime, travelMode, travelMode === "drive" ? 30 : 60);
+    addPlace(timeline, currentTime, selectedStay, 60, " (체크인 및 휴식)");
+  }
+
+  return timeline;
+}
+
+function addPlace(timeline: CourseItem[], currentTime: Date, place: Place | undefined, duration: number, suffix = "") {
+  if (!place) return;
+  const start = timeText(currentTime);
+  currentTime.setMinutes(currentTime.getMinutes() + duration);
+  const end = timeText(currentTime);
+  timeline.push({ ...place, type: place.category, timeRange: `${start} - ${end}${suffix}` });
+}
+
+function addTravel(timeline: CourseItem[], currentTime: Date, travelType: TravelMode, duration: number) {
+  timeline.push({ type: "travel", duration, travelType });
+  currentTime.setMinutes(currentTime.getMinutes() + duration);
+}
+
+function timeText(date: Date) {
+  return date.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
+function isPlaceCourseItem(item: CourseItem): item is PlaceCourseItem {
+  return item.type !== "travel";
+}
+
+function getSubCategoryLabel(category: SubCategoryFilter) {
+  const labels: Record<SubCategoryFilter, string> = {
+    전체: "전체보기",
+    forest: "산림욕",
+    yoga: "요가",
+    meditation: "명상",
+    healthy: "건강식",
+    local: "향토음식",
+    resort: "리조트",
+    wellness: "웰니스센터",
+    healing: "힐링스테이",
+    hotel: "호텔",
+  };
+
+  return labels[category];
+}
+
+function getCategoryLabel(category: PlaceCategory) {
+  const labels: Record<PlaceCategory, string> = {
+    spot: "웰니스 스팟",
+    food: "건강 맛집",
+    stay: "힐링 숙소",
+  };
+
+  return labels[category];
+}
+
+function getCategoryColor(category: PlaceCategory) {
+  const colors: Record<PlaceCategory, string> = {
+    spot: GW_GREEN,
+    food: "#F59E0B",
+    stay: "#7C3AED",
+  };
+
+  return colors[category];
+}

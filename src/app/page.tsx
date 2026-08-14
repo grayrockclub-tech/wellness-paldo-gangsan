@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   BedDouble,
   Car,
@@ -90,6 +91,7 @@ const foodSubCategories: SubCategoryFilter[] = ["전체", "healthy", "local"];
 const staySubCategories: SubCategoryFilter[] = ["전체", "resort", "wellness", "healing", "hotel"];
 
 export default function Home() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<ActiveTab>("login");
   const [mainCategoryFilter, setMainCategoryFilter] = useState<MainCategoryFilter>("all");
   const [subCategoryFilter, setSubCategoryFilter] = useState<SubCategoryFilter>("전체");
@@ -104,8 +106,14 @@ export default function Home() {
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
 
   useEffect(() => {
+    const desktopQuery = window.matchMedia("(min-width: 1024px)");
+    if (desktopQuery.matches) {
+      router.replace("/desktop");
+      return;
+    }
+
     console.log("Kakao SDK Initialized (Mock)");
-  }, []);
+  }, [router]);
 
   const handleKakaoLogin = () => {
     setActiveTab("home");

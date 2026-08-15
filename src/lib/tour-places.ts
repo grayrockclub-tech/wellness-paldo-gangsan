@@ -143,7 +143,7 @@ function mergeWithFallbackPlaces(places: WellnessPlace[]) {
 
 async function fetchTourList(operation: "areaBasedList2", contentTypeId: string, numOfRows: number) {
   const cacheKey = `wellness-places:${operation}:${contentTypeId}:${numOfRows}`;
-  const data = await getCached(cacheKey, 60 * 60 * 12, () =>
+  const { data } = await getCached(cacheKey, 60 * 60 * 12, () =>
     fetchTourApi({
       operation,
       params: {

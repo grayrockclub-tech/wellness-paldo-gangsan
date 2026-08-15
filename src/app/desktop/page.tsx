@@ -85,10 +85,11 @@ type KakaoBounds = {
   extend: (latLng: KakaoLatLng) => void;
 };
 type KakaoMapInstance = {
+  panTo: (latLng: KakaoLatLng) => void;
   setCenter: (latLng: KakaoLatLng) => void;
   setBounds: (bounds: KakaoBounds) => void;
 };
-type KakaoMapMarker = {
+type KakaoMapOverlay = {
   setMap: (map: KakaoMapInstance | null) => void;
 };
 type KakaoMapPolyline = {
@@ -99,7 +100,14 @@ type KakaoMapsApi = {
   LatLng: new (lat: number, lng: number) => KakaoLatLng;
   LatLngBounds: new () => KakaoBounds;
   Map: new (container: HTMLElement, options: { center: KakaoLatLng; level: number }) => KakaoMapInstance;
-  Marker: new (options: { position: KakaoLatLng; title?: string; map?: KakaoMapInstance }) => KakaoMapMarker;
+  CustomOverlay: new (options: {
+    position: KakaoLatLng;
+    content: HTMLElement;
+    map?: KakaoMapInstance;
+    xAnchor?: number;
+    yAnchor?: number;
+    zIndex?: number;
+  }) => KakaoMapOverlay;
   Polyline: new (options: {
     path: KakaoLatLng[];
     strokeWeight: number;
@@ -162,6 +170,7 @@ export default function DesktopPage() {
   const [isPlanning, setIsPlanning] = useState(false);
   const [generatedCourse, setGeneratedCourse] = useState<CourseItem[] | null>(null);
   const [weatherByPlaceId, setWeatherByPlaceId] = useState<Record<string, WeatherSummary>>({});
+  const placeCardRefs = useRef<Record<string, HTMLElement | null>>({});
 
   useEffect(() => {
     let canceled = false;
@@ -239,6 +248,14 @@ export default function DesktopPage() {
     mainCategoryFilter === "all" ? ["전체"] : subCategoryMap[mainCategoryFilter];
 
   const selectedMustGoPlaces = places.filter((place) => mustGoSpots.includes(place.id));
+
+  useEffect(() => {
+    placeCardRefs.current[selectedPlace.id]?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "nearest",
+    });
+  }, [selectedPlace.id, filteredPlaces]);
 
   const toggleMustGoSpot = (id: string) => {
     setMustGoSpots((prev) => {
@@ -379,7 +396,7 @@ export default function DesktopPage() {
 
           <div className="grid min-h-0 grid-rows-[660px_minmax(0,1fr)] gap-5 p-6">
             <section className="grid min-h-0 grid-cols-[minmax(0,1fr)_360px] gap-5">
-              <KakaoMapPanel selectedPlace={selectedPlace} generatedCourse={generatedCourse} />
+              <KakaoMapPanel selectedPlace={selectedPlace} generatedCourse={generatedCourse} onSelectPlace={setSelectedPlace} />
 
               <PlaceDetailPanel
                 place={selectedPlace}
@@ -401,6 +418,9 @@ export default function DesktopPage() {
                 {filteredPlaces.map((place) => (
                   <PlaceCard
                     key={place.id}
+                    cardRef={(node) => {
+                      placeCardRefs.current[place.id] = node;
+                    }}
                     place={place}
                     selected={selectedPlace.id === place.id}
                     mustGo={mustGoSpots.includes(place.id)}
@@ -509,12 +529,23 @@ export default function DesktopPage() {
   );
 }
 
-function KakaoMapPanel({ selectedPlace, generatedCourse }: { selectedPlace: Place; generatedCourse: CourseItem[] | null }) {
-  const places = useMemo(() => generatedCourse?.filter(isPlaceCourseItem) ?? [selectedPlace], [generatedCourse, selectedPlace]);
+function KakaoMapPanel({
+  selectedPlace,
+  generatedCourse,
+  onSelectPlace,
+}: {
+  selectedPlace: Place;
+  generatedCourse: CourseItem[] | null;
+  onSelectPlace: (place: Place) => void;
+}) {
+  const generatedPlaces = useMemo(() => generatedCourse?.filter(isPlaceCourseItem) ?? null, [generatedCourse]);
+  const places = useMemo(() => generatedPlaces ?? [selectedPlace], [generatedPlaces, selectedPlace]);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<KakaoMapInstance | null>(null);
-  const markersRef = useRef<KakaoMapMarker[]>([]);
+  const markersRef = useRef<KakaoMapOverlay[]>([]);
   const polylineRef = useRef<KakaoMapPolyline | null>(null);
+  const initialMapCenterRef = useRef({ lat: selectedPlace.lat, lng: selectedPlace.lng });
+  const fittedPlacesKeyRef = useRef<string | null>(null);
   const [mapStatus, setMapStatus] = useState<"loading" | "ready" | "fallback">(
     process.env.NEXT_PUBLIC_KAKAO_MAP_KEY ? "loading" : "fallback",
   );
@@ -532,7 +563,7 @@ function KakaoMapPanel({ selectedPlace, generatedCourse }: { selectedPlace: Plac
     loadKakaoMaps(mapKey)
       .then((maps) => {
         if (cancelled || !mapElementRef.current) return;
-        const center = new maps.LatLng(selectedPlace.lat, selectedPlace.lng);
+        const center = new maps.LatLng(initialMapCenterRef.current.lat, initialMapCenterRef.current.lng);
         mapRef.current = new maps.Map(mapElementRef.current, { center, level: 8 });
         setMapStatus("ready");
       })
@@ -543,7 +574,14 @@ function KakaoMapPanel({ selectedPlace, generatedCourse }: { selectedPlace: Plac
     return () => {
       cancelled = true;
     };
-  }, [selectedPlace.lat, selectedPlace.lng]);
+  }, []);
+
+  useEffect(() => {
+    if (mapStatus !== "ready" || !mapRef.current || !window.kakao?.maps) return;
+
+    const nextCenter = new window.kakao.maps.LatLng(selectedPlace.lat, selectedPlace.lng);
+    mapRef.current.panTo(nextCenter);
+  }, [mapStatus, selectedPlace.lat, selectedPlace.lng]);
 
   useEffect(() => {
     if (mapStatus !== "ready" || !mapRef.current || !window.kakao?.maps) return;
@@ -551,18 +589,28 @@ function KakaoMapPanel({ selectedPlace, generatedCourse }: { selectedPlace: Plac
     const maps = window.kakao.maps;
     const map = mapRef.current;
     const visiblePlaces = places.slice(0, 5);
+    const visiblePlacesKey = visiblePlaces.map((place) => place.id).join("|");
     const positions = visiblePlaces.map((place) => new maps.LatLng(place.lat, place.lng));
     if (positions.length === 0) return;
 
     markersRef.current.forEach((marker) => marker.setMap(null));
-    markersRef.current = visiblePlaces.map(
-      (place, index) =>
-        new maps.Marker({
-          map,
-          position: positions[index],
-          title: `${index + 1}. ${place.name}`,
-        }),
-    );
+    markersRef.current = visiblePlaces.map((place, index) => {
+      const markerElement = createNumberedMapMarker({
+        index,
+        place,
+        selected: selectedPlace.id === place.id,
+        onClick: () => onSelectPlace(place),
+      });
+
+      return new maps.CustomOverlay({
+        map,
+        position: positions[index],
+        content: markerElement,
+        xAnchor: 0.5,
+        yAnchor: 1,
+        zIndex: selectedPlace.id === place.id ? 20 : 10,
+      });
+    });
 
     polylineRef.current?.setMap(null);
     polylineRef.current = null;
@@ -578,10 +626,14 @@ function KakaoMapPanel({ selectedPlace, generatedCourse }: { selectedPlace: Plac
       polylineRef.current.setMap(map);
 
       const bounds = new maps.LatLngBounds();
-      positions.forEach((position) => bounds.extend(position));
-      map.setBounds(bounds);
+      if (fittedPlacesKeyRef.current !== visiblePlacesKey) {
+        positions.forEach((position) => bounds.extend(position));
+        map.setBounds(bounds);
+        fittedPlacesKeyRef.current = visiblePlacesKey;
+      }
     } else {
-      map.setCenter(positions[0]);
+      map.panTo(positions[0]);
+      fittedPlacesKeyRef.current = visiblePlacesKey;
     }
 
     return () => {
@@ -590,7 +642,7 @@ function KakaoMapPanel({ selectedPlace, generatedCourse }: { selectedPlace: Plac
       polylineRef.current?.setMap(null);
       polylineRef.current = null;
     };
-  }, [mapStatus, places, selectedPlace.id]);
+  }, [mapStatus, onSelectPlace, places, selectedPlace.id]);
 
   return (
     <div className="relative min-h-0 overflow-hidden rounded-lg border border-[#d3dfd4] bg-[#dce8dd]">
@@ -644,6 +696,53 @@ function loadKakaoMaps(appKey: string) {
   });
 
   return kakaoMapsLoader;
+}
+
+function createNumberedMapMarker({
+  index,
+  place,
+  selected,
+  onClick,
+}: {
+  index: number;
+  place: Place;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.title = `${index + 1}. ${place.name}`;
+  button.setAttribute("aria-label", `${index + 1}번 장소 ${place.name} 선택`);
+  button.textContent = String(index + 1);
+  button.style.alignItems = "center";
+  button.style.background = selected ? GW_BLUE : getCategoryColor(place.category);
+  button.style.border = "3px solid #ffffff";
+  button.style.borderRadius = "999px";
+  button.style.boxShadow = selected ? "0 8px 18px rgba(0, 91, 170, 0.32)" : "0 6px 14px rgba(0, 0, 0, 0.22)";
+  button.style.color = "#ffffff";
+  button.style.cursor = "pointer";
+  button.style.display = "flex";
+  button.style.fontSize = "14px";
+  button.style.fontWeight = "900";
+  button.style.height = selected ? "42px" : "36px";
+  button.style.justifyContent = "center";
+  button.style.lineHeight = "1";
+  button.style.outline = "none";
+  button.style.transition = "transform 160ms ease, box-shadow 160ms ease";
+  button.style.width = selected ? "42px" : "36px";
+  button.addEventListener("mouseenter", () => {
+    button.style.transform = "translateY(-2px) scale(1.04)";
+  });
+  button.addEventListener("mouseleave", () => {
+    button.style.transform = "translateY(0) scale(1)";
+  });
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onClick();
+  });
+
+  return button;
 }
 
 function KakaoMapFallback({ selectedPlace, places }: { selectedPlace: Place; places: PlaceCourseItem[] | Place[] }) {
@@ -724,7 +823,7 @@ function PlaceDetailPanel({
           {selected ? "선택됨" : "꼭 가기"}
         </button>
       </div>
-      <div className="mt-5 flex min-h-0 flex-1 flex-col">
+      <div className="mt-5 flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-lg bg-[#f1f5ef] px-3 py-1 text-xs font-black text-[#526158]">{getCategoryLabel(place.category)}</span>
           <span className={`rounded-lg px-3 py-1 text-xs font-black ${place.contentId ? "bg-blue-50 text-blue-700" : "bg-[#f2f6f1] text-[#66756c]"}`}>
@@ -732,13 +831,13 @@ function PlaceDetailPanel({
           </span>
         </div>
         <h3 className="mt-4 text-2xl font-black leading-8">{place.name}</h3>
-        <div className="mt-4 rounded-lg bg-[#f7faf6] px-4 py-3">
-          <p className="text-[11px] font-black text-[#66756c]">장소 설명</p>
-          <div className="mt-2 max-h-[200px] overflow-y-auto pr-3">
+        <div className="mt-4 flex min-h-0 flex-1 flex-col rounded-lg bg-[#f7faf6] px-4 py-3">
+          <p className="shrink-0 text-[11px] font-black text-[#66756c]">장소 설명</p>
+          <div className="mt-2 min-h-0 flex-1 overflow-y-auto pb-3 pr-3">
             <p className="text-sm leading-6 text-[#526158]">{place.desc}</p>
           </div>
         </div>
-        <p className="mt-4 flex items-start gap-2 text-sm font-bold leading-6 text-[#66756c]">
+        <p className="mt-4 flex shrink-0 items-start gap-2 text-sm font-bold leading-6 text-[#66756c]">
           <MapPin size={17} className="mt-1 shrink-0" style={{ color: GW_GREEN }} />
           {place.addr}
         </p>
@@ -787,12 +886,14 @@ function WeatherInsightCard({ weather }: { weather?: WeatherSummary }) {
 }
 
 function PlaceCard({
+  cardRef,
   place,
   selected,
   mustGo,
   onOpen,
   onToggle,
 }: {
+  cardRef?: (node: HTMLElement | null) => void;
   place: Place;
   selected: boolean;
   mustGo: boolean;
@@ -803,6 +904,7 @@ function PlaceCard({
 
   return (
     <article
+      ref={cardRef}
       className={`rounded-lg border bg-[#fbfcf8] p-4 transition ${selected ? "border-[#005BAA] shadow-sm" : "border-[#dce6dc] hover:border-[#9ebca7]"}`}
     >
       <div className="flex items-start justify-between gap-3">

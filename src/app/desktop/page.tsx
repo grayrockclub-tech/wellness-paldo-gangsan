@@ -105,10 +105,6 @@ const subCategoryMap: Record<PlaceCategory, SubCategoryFilter[]> = {
   stay: ["전체", "resort", "wellness", "healing", "hotel"],
 };
 
-function getPlaceSourceLabel(place: Pick<Place, "contentId">) {
-  return place.contentId ? "TourAPI" : "Sample";
-}
-
 function getPlaceSourceDescription(place: Pick<Place, "contentId">) {
   return place.contentId ? "한국관광공사 TourAPI" : "샘플 데이터";
 }
@@ -660,9 +656,6 @@ function PlaceCard({
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="shrink-0 whitespace-nowrap rounded-md bg-white px-2 py-1 text-[11px] font-black text-[#526158]">{place.region}</span>
               <span className="shrink-0 whitespace-nowrap rounded-md bg-[#ebf8ef] px-2 py-1 text-[11px] font-black text-[#087a36]">{getCategoryLabel(place.category)}</span>
-              <span className={`shrink-0 whitespace-nowrap rounded-md px-2 py-1 text-[11px] font-black ${place.contentId ? "bg-blue-50 text-blue-700" : "bg-white text-[#8a978f]"}`}>
-                {getPlaceSourceLabel(place)}
-              </span>
             </div>
             <h4 className="mt-3 line-clamp-2 text-sm font-black leading-5 text-[#17211b]">{place.name}</h4>
           </div>
@@ -708,11 +701,8 @@ function Timeline({ course, travelMode }: { course: CourseItem[]; travelMode: Tr
             <h4 className="mt-3 text-sm font-black leading-5">{item.name}</h4>
             <p className="mt-2 text-xs font-bold text-[#66756c]">{getCategoryLabel(item.category)} · {item.region}</p>
             <div className="mt-3 rounded-lg bg-white px-3 py-2">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
                 <span className="text-[11px] font-black text-[#66756c]">장소 설명</span>
-                <span className={`rounded-md px-2 py-1 text-[10px] font-black ${item.contentId ? "bg-blue-50 text-blue-700" : "bg-[#f2f6f1] text-[#66756c]"}`}>
-                  {getPlaceSourceLabel(item)}
-                </span>
               </div>
               <p className="mt-2 line-clamp-2 text-xs font-medium leading-5 text-[#526158]">{item.desc}</p>
             </div>

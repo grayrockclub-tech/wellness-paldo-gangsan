@@ -103,10 +103,6 @@ const spotSubCategories: SubCategoryFilter[] = ["전체", "forest", "yoga", "med
 const foodSubCategories: SubCategoryFilter[] = ["전체", "healthy", "local"];
 const staySubCategories: SubCategoryFilter[] = ["전체", "resort", "wellness", "healing", "hotel"];
 
-function getPlaceSourceLabel(place: Pick<Place, "contentId">) {
-  return place.contentId ? "TourAPI" : "Sample";
-}
-
 function getPlaceSourceDescription(place: Pick<Place, "contentId">) {
   return place.contentId ? "한국관광공사 TourAPI" : "샘플 데이터";
 }
@@ -397,9 +393,6 @@ export default function Home() {
                         <span className="shrink-0 whitespace-nowrap rounded-md border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700">
                           {place.category === "food" ? "맛집" : place.category === "stay" ? "숙소" : "스팟"}
                         </span>
-                        <span className={`shrink-0 whitespace-nowrap rounded-md border px-2 py-0.5 text-[9px] font-black ${place.contentId ? "border-blue-100 bg-blue-50 text-blue-700" : "border-slate-100 bg-white/70 text-slate-500"}`}>
-                          {getPlaceSourceLabel(place)}
-                        </span>
                       </div>
                       <h4 className="mb-1 text-[14px] font-bold leading-tight text-slate-800">{place.name}</h4>
                       <div>
@@ -588,11 +581,8 @@ export default function Home() {
                             <MapPin size={12} className="mr-1 opacity-60" style={{ color: GW_GREEN }} /> {item.addr}
                           </p>
                           <div className="mt-3 rounded-2xl bg-white/60 px-4 py-3">
-                            <div className="mb-2 flex items-center justify-between gap-2">
+                            <div className="mb-2 flex items-center gap-2">
                               <span className="text-[9px] font-black text-slate-400">장소 설명</span>
-                              <span className={`rounded-full px-2 py-0.5 text-[9px] font-black ${item.contentId ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-500"}`}>
-                                {getPlaceSourceLabel(item)}
-                              </span>
                             </div>
                             <p className="line-clamp-2 text-[11px] font-medium leading-relaxed text-slate-600">{item.desc}</p>
                           </div>
@@ -677,9 +667,6 @@ export default function Home() {
               <div className="absolute bottom-6 left-6 z-20 flex space-x-2">
                 <span className="rounded-xl border border-white bg-white/80 px-3 py-1.5 text-[10px] font-black shadow-sm backdrop-blur-md" style={{ color: GW_BLUE }}>
                   {viewingPlace.category === "food" ? "건강 맛집" : viewingPlace.category === "stay" ? "힐링 숙소" : "웰니스 스팟"}
-                </span>
-                <span className={`rounded-xl border border-white px-3 py-1.5 text-[10px] font-black shadow-sm backdrop-blur-md ${viewingPlace.contentId ? "bg-blue-50/90 text-blue-700" : "bg-white/80 text-slate-500"}`}>
-                  {getPlaceSourceLabel(viewingPlace)}
                 </span>
               </div>
             </div>

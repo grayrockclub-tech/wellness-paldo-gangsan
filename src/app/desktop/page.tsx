@@ -280,7 +280,7 @@ export default function DesktopPage() {
               </h2>
             </div>
             <div className="flex items-center gap-3 text-sm">
-              <Link href="/" className="rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 font-bold text-[#526158]">
+              <Link href="/?view=mobile" className="rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 font-bold text-[#526158]">
                 모바일 화면
               </Link>
               <div className="rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 font-bold">

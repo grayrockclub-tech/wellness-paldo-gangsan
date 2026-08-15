@@ -113,8 +113,9 @@ export default function Home() {
   const [tourDataSource, setTourDataSource] = useState<"loading" | "tourapi" | "mixed" | "fallback">("loading");
 
   useEffect(() => {
+    const forcedMobileView = new URLSearchParams(window.location.search).get("view") === "mobile";
     const desktopQuery = window.matchMedia("(min-width: 1024px)");
-    if (desktopQuery.matches) {
+    if (desktopQuery.matches && !forcedMobileView) {
       router.replace("/desktop");
       return;
     }

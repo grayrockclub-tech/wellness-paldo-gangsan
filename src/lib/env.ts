@@ -1,6 +1,7 @@
 export type RuntimeEnvStatus = {
   tourApiKey: boolean;
   weatherApiKey: boolean;
+  kakaoMapKey: boolean;
   tourApiBaseUrl: string;
   weatherApiBaseUrl: string;
 };
@@ -16,6 +17,7 @@ export function getRuntimeEnvStatus(): RuntimeEnvStatus {
   return {
     tourApiKey: Boolean(process.env.TOUR_API_KEY),
     weatherApiKey: Boolean(process.env.WEATHER_API_KEY),
+    kakaoMapKey: Boolean(process.env.NEXT_PUBLIC_KAKAO_MAP_KEY),
     tourApiBaseUrl: TOUR_API_BASE_URL,
     weatherApiBaseUrl: WEATHER_API_BASE_URL,
   };

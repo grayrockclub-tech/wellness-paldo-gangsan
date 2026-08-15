@@ -19,7 +19,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { buildWellnessCourse, type PlaceCourseItem as BuiltPlaceCourseItem, type WellnessCourseItem } from "@/lib/course-builder";
 
 const GW_GREEN = "#0DB14B";
@@ -79,6 +79,45 @@ type WeatherSummary = {
   message: string;
   recommendationHint: string;
 };
+
+type KakaoLatLng = unknown;
+type KakaoBounds = {
+  extend: (latLng: KakaoLatLng) => void;
+};
+type KakaoMapInstance = {
+  setCenter: (latLng: KakaoLatLng) => void;
+  setBounds: (bounds: KakaoBounds) => void;
+};
+type KakaoMapMarker = {
+  setMap: (map: KakaoMapInstance | null) => void;
+};
+type KakaoMapPolyline = {
+  setMap: (map: KakaoMapInstance | null) => void;
+};
+type KakaoMapsApi = {
+  load: (callback: () => void) => void;
+  LatLng: new (lat: number, lng: number) => KakaoLatLng;
+  LatLngBounds: new () => KakaoBounds;
+  Map: new (container: HTMLElement, options: { center: KakaoLatLng; level: number }) => KakaoMapInstance;
+  Marker: new (options: { position: KakaoLatLng; title?: string; map?: KakaoMapInstance }) => KakaoMapMarker;
+  Polyline: new (options: {
+    path: KakaoLatLng[];
+    strokeWeight: number;
+    strokeColor: string;
+    strokeOpacity: number;
+    strokeStyle: string;
+  }) => KakaoMapPolyline;
+};
+
+declare global {
+  interface Window {
+    kakao?: {
+      maps: KakaoMapsApi;
+    };
+  }
+}
+
+let kakaoMapsLoader: Promise<KakaoMapsApi> | null = null;
 
 const PLACES: Place[] = [
   { id: "gw-1", region: "평창", category: "spot", subCategory: "forest", name: "용평리조트 발왕산 기 스카이워크", addr: "강원도 평창군 대관령면 올림픽로 715", desc: "해발 1,458m 정상에서 즐기는 산림욕과 맑은 공기.", score: 4.8, lat: 37.6433, lng: 128.68 },
@@ -338,9 +377,9 @@ export default function DesktopPage() {
             </div>
           </header>
 
-          <div className="grid min-h-0 grid-rows-[470px_minmax(0,1fr)] gap-5 p-6">
-            <section className="grid grid-cols-[minmax(0,1fr)_360px] gap-5">
-              <KakaoMapMock selectedPlace={selectedPlace} generatedCourse={generatedCourse} />
+          <div className="grid min-h-0 grid-rows-[660px_minmax(0,1fr)] gap-5 p-6">
+            <section className="grid min-h-0 grid-cols-[minmax(0,1fr)_360px] gap-5">
+              <KakaoMapPanel selectedPlace={selectedPlace} generatedCourse={generatedCourse} />
 
               <PlaceDetailPanel
                 place={selectedPlace}
@@ -358,7 +397,7 @@ export default function DesktopPage() {
                 </div>
                 <span className="rounded-lg bg-[#ebf8ef] px-3 py-2 text-xs font-black text-[#087a36]">{filteredPlaces.length}개</span>
               </div>
-              <div className="grid max-h-[calc(100vh-646px)] min-h-[230px] grid-cols-2 gap-3 overflow-auto p-4 xl:grid-cols-3">
+              <div className="grid max-h-[calc(100vh-836px)] min-h-[300px] grid-cols-2 gap-3 overflow-auto p-4 xl:grid-cols-3">
                 {filteredPlaces.map((place) => (
                   <PlaceCard
                     key={place.id}
@@ -470,30 +509,96 @@ export default function DesktopPage() {
   );
 }
 
-function KakaoMapMock({ selectedPlace, generatedCourse }: { selectedPlace: Place; generatedCourse: CourseItem[] | null }) {
-  const places = generatedCourse?.filter(isPlaceCourseItem) ?? [selectedPlace];
+function KakaoMapPanel({ selectedPlace, generatedCourse }: { selectedPlace: Place; generatedCourse: CourseItem[] | null }) {
+  const places = useMemo(() => generatedCourse?.filter(isPlaceCourseItem) ?? [selectedPlace], [generatedCourse, selectedPlace]);
+  const mapElementRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<KakaoMapInstance | null>(null);
+  const markersRef = useRef<KakaoMapMarker[]>([]);
+  const polylineRef = useRef<KakaoMapPolyline | null>(null);
+  const [mapStatus, setMapStatus] = useState<"loading" | "ready" | "fallback">(
+    process.env.NEXT_PUBLIC_KAKAO_MAP_KEY ? "loading" : "fallback",
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const mapKey = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY;
+    const container = mapElementRef.current;
+
+    if (!mapKey || !container) {
+      setMapStatus("fallback");
+      return;
+    }
+
+    loadKakaoMaps(mapKey)
+      .then((maps) => {
+        if (cancelled || !mapElementRef.current) return;
+        const center = new maps.LatLng(selectedPlace.lat, selectedPlace.lng);
+        mapRef.current = new maps.Map(mapElementRef.current, { center, level: 8 });
+        setMapStatus("ready");
+      })
+      .catch(() => {
+        if (!cancelled) setMapStatus("fallback");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPlace.lat, selectedPlace.lng]);
+
+  useEffect(() => {
+    if (mapStatus !== "ready" || !mapRef.current || !window.kakao?.maps) return;
+
+    const maps = window.kakao.maps;
+    const map = mapRef.current;
+    const visiblePlaces = places.slice(0, 5);
+    const positions = visiblePlaces.map((place) => new maps.LatLng(place.lat, place.lng));
+    if (positions.length === 0) return;
+
+    markersRef.current.forEach((marker) => marker.setMap(null));
+    markersRef.current = visiblePlaces.map(
+      (place, index) =>
+        new maps.Marker({
+          map,
+          position: positions[index],
+          title: `${index + 1}. ${place.name}`,
+        }),
+    );
+
+    polylineRef.current?.setMap(null);
+    polylineRef.current = null;
+
+    if (positions.length > 1) {
+      polylineRef.current = new maps.Polyline({
+        path: positions,
+        strokeWeight: 4,
+        strokeColor: GW_BLUE,
+        strokeOpacity: 0.72,
+        strokeStyle: "solid",
+      });
+      polylineRef.current.setMap(map);
+
+      const bounds = new maps.LatLngBounds();
+      positions.forEach((position) => bounds.extend(position));
+      map.setBounds(bounds);
+    } else {
+      map.setCenter(positions[0]);
+    }
+
+    return () => {
+      markersRef.current.forEach((marker) => marker.setMap(null));
+      markersRef.current = [];
+      polylineRef.current?.setMap(null);
+      polylineRef.current = null;
+    };
+  }, [mapStatus, places, selectedPlace.id]);
 
   return (
-    <div className="relative overflow-hidden rounded-lg border border-[#d3dfd4] bg-[#dce8dd]">
-      <div
-        aria-label="강원도 웰니스 지도"
-        className="absolute inset-0 bg-cover bg-center opacity-75"
-        role="img"
-        style={{
-          backgroundImage:
-            "url(https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1600&q=80)",
-        }}
-      />
-      <div className="absolute inset-0 bg-[#113524]/35" />
-      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-        <path d="M19 35 C31 30, 42 54, 51 48 S68 32, 79 42" fill="none" stroke="rgba(255,255,255,.78)" strokeDasharray="3 3" strokeLinecap="round" strokeWidth="0.65" />
-      </svg>
-      {places.slice(0, 5).map((place, index) => (
-        <MapMarker key={`${place.id}-${index}`} place={place} index={index} selected={place.id === selectedPlace.id} />
-      ))}
+    <div className="relative min-h-0 overflow-hidden rounded-lg border border-[#d3dfd4] bg-[#dce8dd]">
+      <div ref={mapElementRef} aria-label="강원도 웰니스 카카오 지도" className="absolute inset-0 h-full w-full" />
+      {mapStatus !== "ready" && <KakaoMapFallback selectedPlace={selectedPlace} places={places} />}
       <div className="absolute left-5 top-5 rounded-lg bg-white/92 px-4 py-3 shadow-sm backdrop-blur">
         <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: GW_GREEN }}>
-          Kakao Map 영역
+          {mapStatus === "ready" ? "Kakao Map" : "Kakao Map 대기"}
         </p>
         <p className="mt-1 text-sm font-black" style={{ color: GW_BLUE }}>
           스팟·맛집·숙소 통합 경로
@@ -510,6 +615,57 @@ function KakaoMapMock({ selectedPlace, generatedCourse }: { selectedPlace: Place
         </div>
       </div>
     </div>
+  );
+}
+
+function loadKakaoMaps(appKey: string) {
+  if (window.kakao?.maps) {
+    return new Promise<KakaoMapsApi>((resolve) => window.kakao?.maps.load(() => resolve(window.kakao!.maps)));
+  }
+
+  if (kakaoMapsLoader) return kakaoMapsLoader;
+
+  kakaoMapsLoader = new Promise<KakaoMapsApi>((resolve, reject) => {
+    const existingScript = document.getElementById("kakao-map-sdk") as HTMLScriptElement | null;
+
+    if (existingScript) {
+      existingScript.addEventListener("load", () => window.kakao?.maps.load(() => resolve(window.kakao!.maps)), { once: true });
+      existingScript.addEventListener("error", () => reject(new Error("Kakao Maps SDK failed to load")), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = "kakao-map-sdk";
+    script.async = true;
+    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(appKey)}&autoload=false`;
+    script.onload = () => window.kakao?.maps.load(() => resolve(window.kakao!.maps));
+    script.onerror = () => reject(new Error("Kakao Maps SDK failed to load"));
+    document.head.appendChild(script);
+  });
+
+  return kakaoMapsLoader;
+}
+
+function KakaoMapFallback({ selectedPlace, places }: { selectedPlace: Place; places: PlaceCourseItem[] | Place[] }) {
+  return (
+    <>
+      <div
+        aria-label="강원도 웰니스 지도"
+        className="absolute inset-0 bg-cover bg-center opacity-75"
+        role="img"
+        style={{
+          backgroundImage:
+            "url(https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1600&q=80)",
+        }}
+      />
+      <div className="absolute inset-0 bg-[#113524]/35" />
+      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <path d="M19 35 C31 30, 42 54, 51 48 S68 32, 79 42" fill="none" stroke="rgba(255,255,255,.78)" strokeDasharray="3 3" strokeLinecap="round" strokeWidth="0.65" />
+      </svg>
+      {places.slice(0, 5).map((place, index) => (
+        <MapMarker key={`${place.id}-${index}`} place={place} index={index} selected={place.id === selectedPlace.id} />
+      ))}
+    </>
   );
 }
 
@@ -552,7 +708,7 @@ function PlaceDetailPanel({
   const Icon = place.category === "food" ? Utensils : place.category === "stay" ? BedDouble : Leaf;
 
   return (
-    <article className="rounded-lg border border-[#d3dfd4] bg-white p-5">
+    <article className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-[#d3dfd4] bg-white p-5">
       <div className="flex items-start justify-between">
         <div className="flex h-14 w-14 items-center justify-center rounded-lg text-white" style={{ backgroundColor: getCategoryColor(place.category) }}>
           <Icon size={26} />
@@ -568,7 +724,7 @@ function PlaceDetailPanel({
           {selected ? "선택됨" : "꼭 가기"}
         </button>
       </div>
-      <div className="mt-5">
+      <div className="mt-5 flex min-h-0 flex-1 flex-col">
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-lg bg-[#f1f5ef] px-3 py-1 text-xs font-black text-[#526158]">{getCategoryLabel(place.category)}</span>
           <span className={`rounded-lg px-3 py-1 text-xs font-black ${place.contentId ? "bg-blue-50 text-blue-700" : "bg-[#f2f6f1] text-[#66756c]"}`}>
@@ -578,7 +734,9 @@ function PlaceDetailPanel({
         <h3 className="mt-4 text-2xl font-black leading-8">{place.name}</h3>
         <div className="mt-4 rounded-lg bg-[#f7faf6] px-4 py-3">
           <p className="text-[11px] font-black text-[#66756c]">장소 설명</p>
-          <p className="mt-2 line-clamp-5 text-sm leading-6 text-[#526158]">{place.desc}</p>
+          <div className="mt-2 max-h-[200px] overflow-y-auto pr-3">
+            <p className="text-sm leading-6 text-[#526158]">{place.desc}</p>
+          </div>
         </div>
         <p className="mt-4 flex items-start gap-2 text-sm font-bold leading-6 text-[#66756c]">
           <MapPin size={17} className="mt-1 shrink-0" style={{ color: GW_GREEN }} />

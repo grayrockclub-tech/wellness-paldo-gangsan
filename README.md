@@ -28,9 +28,11 @@ npm run dev
 ```bash
 TOUR_API_KEY=
 WEATHER_API_KEY=
+NEXT_PUBLIC_KAKAO_MAP_KEY=
 ```
 
-API 키는 `NEXT_PUBLIC_`을 붙이지 않습니다. 서버 라우트에서만 읽어 브라우저에 노출되지 않게 합니다.
+공공데이터포털 API 키는 `NEXT_PUBLIC_`을 붙이지 않습니다. 서버 라우트에서만 읽어 브라우저에 노출되지 않게 합니다.
+카카오 지도 JavaScript 키는 브라우저에서 지도 SDK를 불러와야 하므로 `NEXT_PUBLIC_KAKAO_MAP_KEY`로 설정합니다.
 공공데이터포털 TourAPI 키는 Encoding/Decoding 키 모두 입력 가능하도록 서버에서 정규화합니다.
 
 ## 서버 API 라우트

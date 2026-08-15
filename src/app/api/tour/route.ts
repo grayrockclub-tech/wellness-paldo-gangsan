@@ -10,21 +10,40 @@ export async function GET(request: Request) {
   }
 
   try {
-    const apiParams = {
-      areaCode: params.get("areaCode") ?? GANGWON_AREA_CODE,
-      sigunguCode: params.get("sigunguCode") ?? undefined,
-      contentTypeId: params.get("contentTypeId") ?? undefined,
-      keyword: params.get("keyword") ?? undefined,
-      contentId: params.get("contentId") ?? undefined,
-      mapX: params.get("mapX") ?? undefined,
-      mapY: params.get("mapY") ?? undefined,
-      radius: params.get("radius") ?? undefined,
-      numOfRows: params.get("numOfRows") ?? "10",
-      pageNo: params.get("pageNo") ?? "1",
-      arrange: params.get("arrange") ?? "O",
-    };
+    const apiParams: Record<string, string | undefined> = {};
+    const passthroughParams = [
+      "areaCode",
+      "sigunguCode",
+      "contentTypeId",
+      "keyword",
+      "contentId",
+      "mapX",
+      "mapY",
+      "radius",
+      "numOfRows",
+      "pageNo",
+      "arrange",
+      "defaultYN",
+      "firstImageYN",
+      "areacodeYN",
+      "catcodeYN",
+      "addrinfoYN",
+      "mapinfoYN",
+      "overviewYN",
+    ];
 
-    const cacheKey = `tour:${operation}:${JSON.stringify(apiParams)}`;
+    for (const key of passthroughParams) {
+      apiParams[key] = params.get(key) ?? undefined;
+    }
+
+    if (operation !== "detailCommon2") {
+      apiParams.areaCode = apiParams.areaCode ?? GANGWON_AREA_CODE;
+      apiParams.numOfRows = apiParams.numOfRows ?? "10";
+      apiParams.pageNo = apiParams.pageNo ?? "1";
+      apiParams.arrange = apiParams.arrange ?? "O";
+    }
+
+    const cacheKey = `tour:v2:${operation}:${JSON.stringify(apiParams)}`;
     const result = await getCached(cacheKey, 60 * 60 * 24, () =>
       fetchTourApi({ operation, params: apiParams }),
     );

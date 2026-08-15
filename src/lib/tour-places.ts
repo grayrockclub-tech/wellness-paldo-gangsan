@@ -26,6 +26,7 @@ export type WellnessPlace = {
   image?: string;
   contentId?: string;
   contentTypeId?: string;
+  descriptionSource?: "tourapi-overview" | "generated";
 };
 
 type TourItem = {
@@ -360,19 +361,25 @@ async function enrichPlacesWithDetailOverview(places: WellnessPlace[], warnings:
     if (overview) overviewByPlaceId.set(place.id, overview);
   });
 
-  return places.map((place) => ({ ...place, desc: overviewByPlaceId.get(place.id) ?? place.desc }));
+  if (targetPlaces.length > 0 && overviewByPlaceId.size === 0) {
+    warnings.push(`detailCommon2 returned 0 overviews for ${targetPlaces.length} target places.`);
+  }
+
+  return places.map((place) => {
+    const overview = overviewByPlaceId.get(place.id);
+    return overview ? { ...place, desc: overview, descriptionSource: "tourapi-overview" as const } : place;
+  });
 }
 
 async function fetchDetailCommon(place: WellnessPlace) {
   if (!place.contentId) return null;
 
-  const cacheKey = `wellness-places:detail-common:${place.contentId}:${place.contentTypeId ?? ""}`;
+  const cacheKey = `wellness-places:detail-common:v2:${place.contentId}`;
   const { data } = await getCached(cacheKey, 60 * 60 * 24 * 7, () =>
     fetchTourApi({
       operation: "detailCommon2",
       params: {
         contentId: place.contentId,
-        contentTypeId: place.contentTypeId,
         defaultYN: "Y",
         firstImageYN: "Y",
         areacodeYN: "Y",
@@ -436,6 +443,7 @@ function mapTourItem(item: TourItem, category: WellnessPlaceCategory, fitScore: 
     image: item.firstimage || item.firstimage2,
     contentId: item.contentid ? String(item.contentid) : undefined,
     contentTypeId: item.contenttypeid ? String(item.contenttypeid) : undefined,
+    descriptionSource: "generated",
   };
 }
 

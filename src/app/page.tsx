@@ -390,14 +390,14 @@ export default function Home() {
                       {place.category === "food" ? <Utensils size={24} /> : place.category === "stay" ? <BedDouble size={24} /> : <Leaf size={24} />}
                     </div>
                     <div className="flex-1 pr-8">
-                      <div className="mb-1.5 flex items-center space-x-2">
-                        <span className="rounded-md border border-white/50 bg-white/60 px-2 py-0.5 text-[9px] font-black" style={{ color: GW_BLUE }}>
+                      <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+                        <span className="shrink-0 whitespace-nowrap rounded-md border border-white/50 bg-white/60 px-2 py-0.5 text-[9px] font-black" style={{ color: GW_BLUE }}>
                           강원 {place.region}
                         </span>
-                        <span className="rounded-md border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700">
+                        <span className="shrink-0 whitespace-nowrap rounded-md border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700">
                           {place.category === "food" ? "맛집" : place.category === "stay" ? "숙소" : "스팟"}
                         </span>
-                        <span className={`rounded-md border px-2 py-0.5 text-[9px] font-black ${place.contentId ? "border-blue-100 bg-blue-50 text-blue-700" : "border-slate-100 bg-white/70 text-slate-500"}`}>
+                        <span className={`shrink-0 whitespace-nowrap rounded-md border px-2 py-0.5 text-[9px] font-black ${place.contentId ? "border-blue-100 bg-blue-50 text-blue-700" : "border-slate-100 bg-white/70 text-slate-500"}`}>
                           {getPlaceSourceLabel(place)}
                         </span>
                       </div>

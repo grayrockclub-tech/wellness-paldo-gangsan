@@ -657,10 +657,10 @@ function PlaceCard({
             <Icon size={20} />
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="rounded-md bg-white px-2 py-1 text-[11px] font-black text-[#526158]">{place.region}</span>
-              <span className="rounded-md bg-[#ebf8ef] px-2 py-1 text-[11px] font-black text-[#087a36]">{getCategoryLabel(place.category)}</span>
-              <span className={`rounded-md px-2 py-1 text-[11px] font-black ${place.contentId ? "bg-blue-50 text-blue-700" : "bg-white text-[#8a978f]"}`}>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="shrink-0 whitespace-nowrap rounded-md bg-white px-2 py-1 text-[11px] font-black text-[#526158]">{place.region}</span>
+              <span className="shrink-0 whitespace-nowrap rounded-md bg-[#ebf8ef] px-2 py-1 text-[11px] font-black text-[#087a36]">{getCategoryLabel(place.category)}</span>
+              <span className={`shrink-0 whitespace-nowrap rounded-md px-2 py-1 text-[11px] font-black ${place.contentId ? "bg-blue-50 text-blue-700" : "bg-white text-[#8a978f]"}`}>
                 {getPlaceSourceLabel(place)}
               </span>
             </div>

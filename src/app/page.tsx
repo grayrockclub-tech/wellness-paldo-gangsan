@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { buildWellnessCourse, type PlaceCourseItem as BuiltPlaceCourseItem, type WellnessCourseItem } from "@/lib/course-builder";
@@ -80,6 +80,53 @@ type WeatherSummary = {
   recommendationHint: string;
 };
 
+type KakaoLatLng = unknown;
+type KakaoBounds = {
+  extend: (latLng: KakaoLatLng) => void;
+};
+type KakaoMapInstance = {
+  panTo: (latLng: KakaoLatLng) => void;
+  setCenter: (latLng: KakaoLatLng) => void;
+  setBounds: (bounds: KakaoBounds) => void;
+};
+type KakaoMapOverlay = {
+  setMap: (map: KakaoMapInstance | null) => void;
+};
+type KakaoMapPolyline = {
+  setMap: (map: KakaoMapInstance | null) => void;
+};
+type KakaoMapsApi = {
+  load: (callback: () => void) => void;
+  LatLng: new (lat: number, lng: number) => KakaoLatLng;
+  LatLngBounds: new () => KakaoBounds;
+  Map: new (container: HTMLElement, options: { center: KakaoLatLng; level: number }) => KakaoMapInstance;
+  CustomOverlay: new (options: {
+    position: KakaoLatLng;
+    content: HTMLElement;
+    map?: KakaoMapInstance;
+    xAnchor?: number;
+    yAnchor?: number;
+    zIndex?: number;
+  }) => KakaoMapOverlay;
+  Polyline: new (options: {
+    path: KakaoLatLng[];
+    strokeWeight: number;
+    strokeColor: string;
+    strokeOpacity: number;
+    strokeStyle: string;
+  }) => KakaoMapPolyline;
+};
+
+declare global {
+  interface Window {
+    kakao?: {
+      maps: KakaoMapsApi;
+    };
+  }
+}
+
+let kakaoMapsLoader: Promise<KakaoMapsApi> | null = null;
+
 const KTO_MOCK_DATA: Place[] = [
   { id: "gw-1", region: "평창", category: "spot", subCategory: "forest", name: "용평리조트 발왕산 기 스카이워크", addr: "강원도 평창군 대관령면 올림픽로 715", desc: "해발 1,458m 정상에서 즐기는 산림욕과 맑은 공기.", score: 4.8, lat: 37.6433, lng: 128.68 },
   { id: "gw-2", region: "정선", category: "spot", subCategory: "yoga", name: "파크로쉬 리조트앤웰니스", addr: "강원도 정선군 북평면 중봉길 9-12", desc: "요가와 명상, 숙면에 최적화된 프리미엄 웰니스 센터.", score: 4.9, lat: 37.4722, lng: 128.6541 },
@@ -107,6 +154,18 @@ function getPlaceSourceDescription(place: Pick<Place, "contentId">) {
   return place.contentId ? "한국관광공사 TourAPI" : "샘플 데이터";
 }
 
+function createWeatherFallback(): WeatherSummary {
+  return {
+    source: "fallback",
+    sky: "날씨 확인 필요",
+    precipitation: "정보 없음",
+    activityLevel: "normal",
+    activityLabel: "기상 확인 대기",
+    message: "기상 API 응답을 아직 확인하지 못했습니다.",
+    recommendationHint: "실제 운영에서는 선택한 장소 좌표 기준의 초단기예보로 추천 사유를 보강합니다.",
+  };
+}
+
 export default function Home() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ActiveTab>("login");
@@ -124,6 +183,7 @@ export default function Home() {
   const [places, setPlaces] = useState<Place[]>(KTO_MOCK_DATA);
   const [tourDataSource, setTourDataSource] = useState<"loading" | "tourapi" | "mixed" | "fallback">("loading");
   const [weatherByPlaceId, setWeatherByPlaceId] = useState<Record<string, WeatherSummary>>({});
+  const [selectedMapPlaceId, setSelectedMapPlaceId] = useState<string | null>(null);
 
   useEffect(() => {
     const forcedMobileView = new URLSearchParams(window.location.search).get("view") === "mobile";
@@ -133,7 +193,6 @@ export default function Home() {
       return;
     }
 
-    console.log("Kakao SDK Initialized (Mock)");
   }, [router]);
 
   useEffect(() => {
@@ -179,15 +238,7 @@ export default function Home() {
         if (!canceled) {
           setWeatherByPlaceId((current) => ({
             ...current,
-            [place.id]: {
-              source: "fallback",
-              sky: "날씨 확인 필요",
-              precipitation: "정보 없음",
-              activityLevel: "normal",
-              activityLabel: "기상 확인 대기",
-              message: "기상 API 응답을 아직 확인하지 못했습니다.",
-              recommendationHint: "실제 운영에서는 선택한 장소 좌표 기준의 초단기예보로 추천 사유를 보강합니다.",
-            },
+            [place.id]: createWeatherFallback(),
           }));
         }
       }
@@ -215,6 +266,94 @@ export default function Home() {
       return matchMain && matchSub;
     });
   }, [mainCategoryFilter, places, subCategoryFilter]);
+
+  const generatedCoursePlaces = useMemo(() => generatedCourse?.filter(isPlaceCourseItem) ?? [], [generatedCourse]);
+  const mobileMapPlaces = useMemo(() => {
+    const candidates = generatedCoursePlaces.length > 0 ? generatedCoursePlaces : filteredPlaces;
+    return (candidates.length > 0 ? candidates : places).slice(0, 8);
+  }, [filteredPlaces, generatedCoursePlaces, places]);
+  const mobileSelectedMapPlace = useMemo(() => {
+    return mobileMapPlaces.find((place) => place.id === selectedMapPlaceId) ?? mobileMapPlaces[0] ?? places[0] ?? KTO_MOCK_DATA[0];
+  }, [mobileMapPlaces, places, selectedMapPlaceId]);
+  const generatedCourseSummary = useMemo(() => {
+    if (!generatedCourse) return null;
+    const placeItems = generatedCourse.filter(isPlaceCourseItem);
+    const totalTravelMinutes = generatedCourse.reduce((total, item) => item.type === "travel" ? total + item.duration : total, 0);
+    const firstPlace = placeItems[0];
+    const lastPlace = placeItems.at(-1);
+
+    return {
+      placeCount: placeItems.length,
+      spotCount: placeItems.filter((place) => place.category === "spot").length,
+      foodCount: placeItems.filter((place) => place.category === "food").length,
+      stayCount: placeItems.filter((place) => place.category === "stay").length,
+      totalTravelMinutes,
+      startTime: firstPlace?.timeRange.split(" - ")[0] ?? "10:00",
+      endTime: lastPlace?.timeRange.split(" - ")[1]?.replace(" (체크인 및 휴식)", "") ?? "일정 종료",
+    };
+  }, [generatedCourse]);
+
+  useEffect(() => {
+    if (!mobileSelectedMapPlace || weatherByPlaceId[mobileSelectedMapPlace.id]) return;
+    const place = mobileSelectedMapPlace;
+    let canceled = false;
+
+    async function loadWeather() {
+      try {
+        const response = await fetch(`/api/wellness/weather?lat=${place.lat}&lng=${place.lng}`);
+        if (!response.ok) throw new Error(`Failed to load weather: ${response.status}`);
+        const data = (await response.json()) as WeatherSummary;
+        if (!canceled) {
+          setWeatherByPlaceId((current) => ({ ...current, [place.id]: data }));
+        }
+      } catch {
+        if (!canceled) {
+          setWeatherByPlaceId((current) => ({ ...current, [place.id]: createWeatherFallback() }));
+        }
+      }
+    }
+
+    loadWeather();
+
+    return () => {
+      canceled = true;
+    };
+  }, [mobileSelectedMapPlace, weatherByPlaceId]);
+
+  useEffect(() => {
+    const missingPlaces = generatedCoursePlaces
+      .filter((place) => !weatherByPlaceId[place.id])
+      .slice(0, 5);
+    if (missingPlaces.length === 0) return;
+
+    let canceled = false;
+
+    async function loadCourseWeather() {
+      const updates: Record<string, WeatherSummary> = {};
+
+      await Promise.all(
+        missingPlaces.map(async (place) => {
+          try {
+            const response = await fetch(`/api/wellness/weather?lat=${place.lat}&lng=${place.lng}`);
+            if (!response.ok) throw new Error(`Failed to load weather: ${response.status}`);
+            updates[place.id] = (await response.json()) as WeatherSummary;
+          } catch {
+            updates[place.id] = createWeatherFallback();
+          }
+        }),
+      );
+
+      if (!canceled) {
+        setWeatherByPlaceId((current) => ({ ...current, ...updates }));
+      }
+    }
+
+    loadCourseWeather();
+
+    return () => {
+      canceled = true;
+    };
+  }, [generatedCoursePlaces, weatherByPlaceId]);
 
   const toggleMustGoSpot = (event: React.MouseEvent, id: string) => {
     event.stopPropagation();
@@ -337,9 +476,9 @@ export default function Home() {
               <p className="text-xs font-bold opacity-70" style={{ color: GW_BLUE }}>
                 강원도의 청정 힐링 공간을 만나보세요
               </p>
-              <p className="mt-2 text-[10px] font-black uppercase tracking-wide text-slate-400">
-                Data: {tourDataSource === "tourapi" ? "TourAPI" : tourDataSource === "mixed" ? "TourAPI + Sample" : tourDataSource === "loading" ? "Loading" : "Sample fallback"}
-              </p>
+              <div className="mt-3">
+                <TourDataStatusBadge source={tourDataSource} />
+              </div>
             </div>
 
             <div className="mb-4 grid grid-cols-4 gap-2">
@@ -393,6 +532,8 @@ export default function Home() {
                         <span className="shrink-0 whitespace-nowrap rounded-md border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700">
                           {place.category === "food" ? "맛집" : place.category === "stay" ? "숙소" : "스팟"}
                         </span>
+                        <PlaceSourceBadge place={place} />
+                        {weatherByPlaceId[place.id] && <WeatherMiniBadge weather={weatherByPlaceId[place.id]} />}
                       </div>
                       <h4 className="mb-1 text-[14px] font-bold leading-tight text-slate-800">{place.name}</h4>
                       <div>
@@ -518,16 +659,30 @@ export default function Home() {
         {activeTab === "map" && (
           <div className="p-6 pb-24">
             {!generatedCourse ? (
-              <div className="glass-panel rounded-[3rem] py-24 text-center">
-                <Map size={48} className="mx-auto mb-4 opacity-40" style={{ color: GW_BLUE }} />
-                <p className="text-sm font-bold text-slate-600">
-                  플래너 탭에서 스팟·맛집·숙소를 포함한
-                  <br />
-                  원스톱 경로를 먼저 생성해주세요.
-                </p>
-                <button onClick={() => setActiveTab("planner")} className="mt-6 rounded-full bg-white/80 px-6 py-3 text-xs font-black shadow-sm backdrop-blur-md" style={{ color: GW_GREEN }}>
-                  플래너로 이동
-                </button>
+              <div className="space-y-5">
+                <div className="mb-2 px-2">
+                  <h2 className="text-2xl font-black tracking-tight" style={{ color: GW_BLUE }}>
+                    웰니스 지도
+                  </h2>
+                  <p className="mt-1 text-[11px] font-bold leading-5 text-slate-500">
+                    탐색 중인 스팟·맛집·숙소 위치를 지도에서 확인할 수 있습니다.
+                  </p>
+                </div>
+                <MobileKakaoMapPanel
+                  places={mobileMapPlaces}
+                  selectedPlace={mobileSelectedMapPlace}
+                  generatedCourse={null}
+                  weather={weatherByPlaceId[mobileSelectedMapPlace.id]}
+                  onSelectPlace={(place) => setSelectedMapPlaceId(place.id)}
+                />
+                <div className="glass-panel rounded-[2rem] p-5 text-center">
+                  <p className="text-[12px] font-bold leading-5 text-slate-600">
+                    원스톱 경로를 만들면 지도에 이동 순서와 연결선이 함께 표시됩니다.
+                  </p>
+                  <button onClick={() => setActiveTab("planner")} className="mt-4 rounded-full bg-white/80 px-6 py-3 text-xs font-black shadow-sm backdrop-blur-md" style={{ color: GW_GREEN }}>
+                    플래너로 이동
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="space-y-6">
@@ -551,35 +706,67 @@ export default function Home() {
                   </button>
                 </div>
 
-                <KakaoMapPlaceholder />
+                {generatedCourseSummary && (
+                  <MobileRouteSummary
+                    summary={generatedCourseSummary}
+                    travelMode={travelMode}
+                    selectedPlace={mobileSelectedMapPlace}
+                  />
+                )}
+
+                <MobileKakaoMapPanel
+                  places={mobileMapPlaces}
+                  selectedPlace={mobileSelectedMapPlace}
+                  generatedCourse={generatedCourse}
+                  weather={weatherByPlaceId[mobileSelectedMapPlace.id]}
+                  onSelectPlace={(place) => setSelectedMapPlaceId(place.id)}
+                />
+
+                <div className="flex items-center justify-between px-2">
+                  <h3 className="text-sm font-black text-slate-800">상세 일정</h3>
+                  <p className="text-[10px] font-bold text-slate-500">카드를 누르면 지도 위치가 바뀝니다.</p>
+                </div>
 
                 <div className="relative ml-4 space-y-5">
                   {generatedCourse.map((item, index) => (
                     item.type !== "travel" ? (
                       <div key={`${item.id}-${index}`} className="relative pl-10">
-                        <div className="absolute left-[-16px] top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border-[3px] border-white/80 text-[13px] font-black text-white shadow-md" style={{ backgroundColor: item.category === "food" ? "#F59E0B" : item.category === "stay" ? "#8B5CF6" : GW_GREEN }}>
+                        <div className="absolute left-[-16px] top-8 z-10 flex h-9 w-9 items-center justify-center rounded-full border-[3px] border-white/80 text-[13px] font-black text-white shadow-md" style={{ backgroundColor: item.category === "food" ? "#F59E0B" : item.category === "stay" ? "#8B5CF6" : GW_GREEN }}>
                           {item.category === "food" ? <Utensils size={14} /> : item.category === "stay" ? <BedDouble size={14} /> : <Leaf size={14} />}
                         </div>
-                        <div className="glass-panel group relative overflow-hidden rounded-[2rem] p-5">
-                          <div className="mb-2 flex items-center justify-between">
-                            <div className="flex items-center space-x-2">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedMapPlaceId(item.id)}
+                          className={`glass-panel group relative w-full overflow-hidden rounded-[2rem] p-5 text-left transition-all active:scale-[0.99] ${
+                            mobileSelectedMapPlace.id === item.id ? "ring-2 ring-blue-600/80" : ""
+                          }`}
+                        >
+                          <div className="mb-3 flex items-start justify-between gap-3">
+                            <div className="min-w-0 space-y-2">
                               <span className="rounded-full border border-white/50 bg-white/60 px-3 py-1 text-[10px] font-black" style={{ color: GW_BLUE }}>
                                 {item.timeRange}
                               </span>
-                              <span className={`rounded px-2 py-0.5 text-[9px] font-black ${item.category === "food" ? "bg-amber-100 text-amber-800" : item.category === "stay" ? "bg-purple-100 text-purple-800" : "bg-emerald-100 text-emerald-800"}`}>
-                                {item.category === "food" ? "추천 맛집" : item.category === "stay" ? "추천 숙소" : "치유 스팟"}
-                              </span>
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className={`rounded px-2 py-0.5 text-[9px] font-black ${item.category === "food" ? "bg-amber-100 text-amber-800" : item.category === "stay" ? "bg-purple-100 text-purple-800" : "bg-emerald-100 text-emerald-800"}`}>
+                                  {item.category === "food" ? "추천 맛집" : item.category === "stay" ? "추천 숙소" : "치유 스팟"}
+                                </span>
+                                <PlaceSourceBadge place={item} />
+                                <WeatherMiniBadge weather={weatherByPlaceId[item.id]} />
+                              </div>
                             </div>
                             {travelMode === "drive" && (
-                              <button onClick={() => handleKakaoNavi(item.name)} className="flex items-center rounded-lg px-3 py-1.5 text-[9px] font-bold text-white shadow-sm active:scale-95" style={{ backgroundColor: GW_BLUE }}>
+                              <span onClick={(event) => { event.stopPropagation(); handleKakaoNavi(item.name); }} className="flex shrink-0 items-center rounded-lg px-3 py-1.5 text-[9px] font-bold text-white shadow-sm active:scale-95" style={{ backgroundColor: GW_BLUE }}>
                                 <Navigation size={10} className="mr-1" /> 길안내
-                              </button>
+                              </span>
                             )}
                           </div>
                           <h4 className="mt-2 text-[15px] font-black text-slate-800">{item.name}</h4>
                           <p className="mt-1.5 flex items-center text-[11px] font-medium text-slate-500">
                             <MapPin size={12} className="mr-1 opacity-60" style={{ color: GW_GREEN }} /> {item.addr}
                           </p>
+                          <div className="mt-3">
+                            <MobileWeatherInline weather={weatherByPlaceId[item.id]} />
+                          </div>
                           <div className="mt-3 rounded-2xl bg-white/60 px-4 py-3">
                             <div className="mb-2 flex items-center gap-2">
                               <span className="text-[9px] font-black text-slate-400">장소 설명</span>
@@ -590,7 +777,7 @@ export default function Home() {
                             <span className="mb-1 block text-[9px] font-black text-emerald-700">추천 사유</span>
                             {item.recommendationReason}
                           </p>
-                        </div>
+                        </button>
                       </div>
                     ) : (
                       <div key={`travel-${index}`} className="relative py-1 pl-10">
@@ -674,9 +861,10 @@ export default function Home() {
               <h3 className="mb-3 text-xl font-black leading-tight text-slate-800">{viewingPlace.name}</h3>
               <p className="mb-1 text-[10px] font-black text-slate-400">장소 설명</p>
               <p className="mb-4 text-[13px] font-medium leading-relaxed text-slate-600">{viewingPlace.desc}</p>
-              <p className="mb-6 rounded-xl bg-slate-50 px-3 py-2 text-[10px] font-bold text-slate-500">
-                출처: {getPlaceSourceDescription(viewingPlace)}
-              </p>
+              <div className="mb-5 flex flex-wrap items-center gap-2">
+                <PlaceSourceBadge place={viewingPlace} size="md" />
+                <WeatherMiniBadge weather={weatherByPlaceId[viewingPlace.id]} size="md" />
+              </div>
               <WeatherInsightCard weather={weatherByPlaceId[viewingPlace.id]} compact />
               <p className="mb-8 flex items-center text-[11px] font-bold text-slate-500">
                 <MapPin size={14} className="mr-1.5" style={{ color: GW_GREEN }} /> {viewingPlace.addr}
@@ -763,15 +951,413 @@ function getSubCategoryLabel(category: SubCategoryFilter) {
   return labels[category];
 }
 
-function KakaoMapPlaceholder() {
+function MobileRouteSummary({
+  summary,
+  travelMode,
+  selectedPlace,
+}: {
+  summary: {
+    placeCount: number;
+    spotCount: number;
+    foodCount: number;
+    stayCount: number;
+    totalTravelMinutes: number;
+    startTime: string;
+    endTime: string;
+  };
+  travelMode: TravelMode;
+  selectedPlace: Place;
+}) {
   return (
-    <div className="mb-6 flex h-48 w-full flex-col items-center justify-center overflow-hidden rounded-3xl border border-white/50 bg-white/30 shadow-[inset_0_2px_10px_rgba(0,0,0,0.05)] backdrop-blur-sm">
-      <Map size={32} style={{ color: GW_GREEN }} className="mb-2 opacity-60" />
-      <p className="px-4 text-center text-[11px] font-bold tracking-tight" style={{ color: GW_BLUE }}>
-        카카오 지도 영역 (숙소·맛집 통합 경로)
-        <br />
-        <span className="text-[9px] font-normal opacity-80">(스팟, 음식점, 숙소 마커 표시 연동)</span>
-      </p>
+    <section className="glass-panel rounded-[2rem] p-5">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.14em]" style={{ color: GW_GREEN }}>
+            Route Summary
+          </p>
+          <h3 className="mt-1 text-lg font-black text-slate-800">
+            {summary.startTime}부터 {summary.endTime}까지
+          </h3>
+        </div>
+        <span className="shrink-0 rounded-xl bg-white/70 px-3 py-2 text-[10px] font-black" style={{ color: GW_BLUE }}>
+          {travelMode === "walk" ? "뚜벅이" : "자동차"}
+        </span>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <RouteSummaryMetric label="방문" value={`${summary.placeCount}곳`} />
+        <RouteSummaryMetric label="이동" value={`${summary.totalTravelMinutes}분`} />
+        <RouteSummaryMetric label="구성" value={`${summary.spotCount}/${summary.foodCount}/${summary.stayCount}`} />
+      </div>
+      <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50/70 px-4 py-3">
+        <p className="text-[10px] font-black text-blue-700">지도 선택 장소</p>
+        <p className="mt-1 truncate text-[12px] font-black text-slate-800">{selectedPlace.name}</p>
+        <p className="mt-1 line-clamp-1 text-[11px] font-bold text-slate-500">{selectedPlace.addr}</p>
+      </div>
+    </section>
+  );
+}
+
+function RouteSummaryMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-white/70 px-3 py-3">
+      <p className="text-[9px] font-black text-slate-400">{label}</p>
+      <p className="mt-1 text-[13px] font-black text-slate-800">{value}</p>
+    </div>
+  );
+}
+
+function MobileKakaoMapPanel({
+  places,
+  selectedPlace,
+  generatedCourse,
+  weather,
+  onSelectPlace,
+}: {
+  places: Place[];
+  selectedPlace: Place;
+  generatedCourse: CourseItem[] | null;
+  weather?: WeatherSummary;
+  onSelectPlace: (place: Place) => void;
+}) {
+  const mapElementRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<KakaoMapInstance | null>(null);
+  const markersRef = useRef<KakaoMapOverlay[]>([]);
+  const polylineRef = useRef<KakaoMapPolyline | null>(null);
+  const initialMapCenterRef = useRef({ lat: selectedPlace.lat, lng: selectedPlace.lng });
+  const fittedPlacesKeyRef = useRef<string | null>(null);
+  const [mapStatus, setMapStatus] = useState<"loading" | "ready" | "fallback">(
+    process.env.NEXT_PUBLIC_KAKAO_MAP_KEY ? "loading" : "fallback",
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const mapKey = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY;
+    const container = mapElementRef.current;
+
+    if (!mapKey || !container) {
+      setMapStatus("fallback");
+      return;
+    }
+
+    loadKakaoMaps(mapKey)
+      .then((maps) => {
+        if (cancelled || !mapElementRef.current) return;
+        const center = new maps.LatLng(initialMapCenterRef.current.lat, initialMapCenterRef.current.lng);
+        mapRef.current = new maps.Map(mapElementRef.current, { center, level: 9 });
+        setMapStatus("ready");
+      })
+      .catch(() => {
+        if (!cancelled) setMapStatus("fallback");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (mapStatus !== "ready" || !mapRef.current || !window.kakao?.maps) return;
+
+    const nextCenter = new window.kakao.maps.LatLng(selectedPlace.lat, selectedPlace.lng);
+    mapRef.current.panTo(nextCenter);
+  }, [mapStatus, selectedPlace.lat, selectedPlace.lng]);
+
+  useEffect(() => {
+    if (mapStatus !== "ready" || !mapRef.current || !window.kakao?.maps) return;
+
+    const maps = window.kakao.maps;
+    const map = mapRef.current;
+    const visiblePlaces = places.slice(0, 8);
+    const visiblePlacesKey = visiblePlaces.map((place) => place.id).join("|");
+    const positions = visiblePlaces.map((place) => new maps.LatLng(place.lat, place.lng));
+    if (positions.length === 0) return;
+
+    markersRef.current.forEach((marker) => marker.setMap(null));
+    markersRef.current = visiblePlaces.map((place, index) => {
+      const markerElement = createMobileMapMarker({
+        index,
+        place,
+        selected: selectedPlace.id === place.id,
+        onClick: () => onSelectPlace(place),
+      });
+
+      return new maps.CustomOverlay({
+        map,
+        position: positions[index],
+        content: markerElement,
+        xAnchor: 0.5,
+        yAnchor: 1,
+        zIndex: selectedPlace.id === place.id ? 20 : 10,
+      });
+    });
+
+    polylineRef.current?.setMap(null);
+    polylineRef.current = null;
+
+    if (generatedCourse && positions.length > 1) {
+      polylineRef.current = new maps.Polyline({
+        path: positions,
+        strokeWeight: 4,
+        strokeColor: GW_BLUE,
+        strokeOpacity: 0.7,
+        strokeStyle: "solid",
+      });
+      polylineRef.current.setMap(map);
+    }
+
+    if (fittedPlacesKeyRef.current !== visiblePlacesKey) {
+      const bounds = new maps.LatLngBounds();
+      positions.forEach((position) => bounds.extend(position));
+      map.setBounds(bounds);
+      fittedPlacesKeyRef.current = visiblePlacesKey;
+    }
+
+    return () => {
+      markersRef.current.forEach((marker) => marker.setMap(null));
+      markersRef.current = [];
+      polylineRef.current?.setMap(null);
+      polylineRef.current = null;
+    };
+  }, [generatedCourse, mapStatus, onSelectPlace, places, selectedPlace.id]);
+
+  return (
+    <div className="glass-panel overflow-hidden rounded-[2rem] p-3">
+      <div className="relative h-[360px] overflow-hidden rounded-[1.5rem] border border-white/70 bg-emerald-50">
+        <div ref={mapElementRef} aria-label="강원도 웰니스 카카오 지도" className="absolute inset-0 h-full w-full" />
+        {mapStatus !== "ready" && <MobileKakaoMapFallback selectedPlace={selectedPlace} places={places} />}
+        <div className="absolute left-4 top-4 rounded-2xl bg-white/90 px-3 py-2 shadow-sm backdrop-blur">
+          <p className="text-[9px] font-black uppercase tracking-[0.14em]" style={{ color: GW_GREEN }}>
+            {mapStatus === "ready" ? "Kakao Map" : "Kakao Map 대기"}
+          </p>
+          <p className="mt-0.5 text-[11px] font-black" style={{ color: GW_BLUE }}>
+            {generatedCourse ? "원스톱 경로" : "장소 위치 탐색"}
+          </p>
+        </div>
+        <div className="absolute bottom-4 left-4 right-4 rounded-2xl bg-white/92 p-4 shadow-sm backdrop-blur">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black text-slate-400">현재 선택</p>
+              <h3 className="mt-1 truncate text-[15px] font-black text-slate-800">{selectedPlace.name}</h3>
+              <p className="mt-1 line-clamp-2 text-[11px] font-bold leading-5 text-slate-500">{selectedPlace.addr}</p>
+            </div>
+            <span className="shrink-0 rounded-xl bg-emerald-50 px-2.5 py-2 text-[11px] font-black text-emerald-700">
+              {selectedPlace.region}
+            </span>
+          </div>
+        </div>
+      </div>
+      <div className="mt-3">
+        <MobileWeatherInline weather={weather} />
+      </div>
+    </div>
+  );
+}
+
+function loadKakaoMaps(appKey: string) {
+  if (window.kakao?.maps) {
+    return new Promise<KakaoMapsApi>((resolve) => window.kakao?.maps.load(() => resolve(window.kakao!.maps)));
+  }
+
+  if (kakaoMapsLoader) return kakaoMapsLoader;
+
+  kakaoMapsLoader = new Promise<KakaoMapsApi>((resolve, reject) => {
+    const existingScript = document.getElementById("kakao-map-sdk") as HTMLScriptElement | null;
+
+    if (existingScript) {
+      existingScript.addEventListener("load", () => window.kakao?.maps.load(() => resolve(window.kakao!.maps)), { once: true });
+      existingScript.addEventListener("error", () => reject(new Error("Kakao Maps SDK failed to load")), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = "kakao-map-sdk";
+    script.async = true;
+    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(appKey)}&autoload=false`;
+    script.onload = () => window.kakao?.maps.load(() => resolve(window.kakao!.maps));
+    script.onerror = () => reject(new Error("Kakao Maps SDK failed to load"));
+    document.head.appendChild(script);
+  });
+
+  return kakaoMapsLoader;
+}
+
+function createMobileMapMarker({
+  index,
+  place,
+  selected,
+  onClick,
+}: {
+  index: number;
+  place: Place;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.title = `${index + 1}. ${place.name}`;
+  button.setAttribute("aria-label", `${index + 1}번 장소 ${place.name} 선택`);
+  button.textContent = String(index + 1);
+  button.style.alignItems = "center";
+  button.style.background = selected ? GW_BLUE : getCategoryColor(place.category);
+  button.style.border = "3px solid #ffffff";
+  button.style.borderRadius = "999px";
+  button.style.boxShadow = selected ? "0 8px 18px rgba(0, 91, 170, 0.32)" : "0 6px 14px rgba(0, 0, 0, 0.2)";
+  button.style.color = "#ffffff";
+  button.style.cursor = "pointer";
+  button.style.display = "flex";
+  button.style.fontSize = "13px";
+  button.style.fontWeight = "900";
+  button.style.height = selected ? "40px" : "34px";
+  button.style.justifyContent = "center";
+  button.style.lineHeight = "1";
+  button.style.outline = "none";
+  button.style.transition = "transform 160ms ease, box-shadow 160ms ease";
+  button.style.width = selected ? "40px" : "34px";
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onClick();
+  });
+
+  return button;
+}
+
+function MobileKakaoMapFallback({ selectedPlace, places }: { selectedPlace: Place; places: Place[] }) {
+  return (
+    <>
+      <div
+        aria-label="강원도 웰니스 지도"
+        className="absolute inset-0 bg-cover bg-center opacity-75"
+        role="img"
+        style={{
+          backgroundImage:
+            "url(https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1200&q=80)",
+        }}
+      />
+      <div className="absolute inset-0 bg-[#113524]/35" />
+      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <path d="M19 35 C31 30, 42 54, 51 48 S68 32, 79 42" fill="none" stroke="rgba(255,255,255,.78)" strokeDasharray="3 3" strokeLinecap="round" strokeWidth="0.65" />
+      </svg>
+      {places.slice(0, 5).map((place, index) => (
+        <MobileFallbackMarker key={`${place.id}-${index}`} place={place} index={index} selected={place.id === selectedPlace.id} />
+      ))}
+    </>
+  );
+}
+
+function MobileFallbackMarker({ place, index, selected }: { place: Place; index: number; selected: boolean }) {
+  const points = [
+    ["22%", "34%"],
+    ["42%", "55%"],
+    ["61%", "38%"],
+    ["73%", "50%"],
+    ["52%", "27%"],
+  ];
+  const [left, top] = points[index] ?? points[0];
+
+  return (
+    <div className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left, top }}>
+      <div
+        className={`flex h-10 w-10 items-center justify-center rounded-full border-4 border-white text-xs font-black text-white shadow-lg ${
+          selected ? "scale-110" : ""
+        }`}
+        style={{ backgroundColor: getCategoryColor(place.category) }}
+      >
+        {index + 1}
+      </div>
+      <div className="mt-1 whitespace-nowrap rounded-md bg-white/90 px-2 py-1 text-[10px] font-black text-slate-700 shadow-sm">{place.region}</div>
+    </div>
+  );
+}
+
+function getCategoryColor(category: PlaceCategory) {
+  if (category === "food") return "#F59E0B";
+  if (category === "stay") return "#8B5CF6";
+  return GW_GREEN;
+}
+
+function TourDataStatusBadge({ source }: { source: "loading" | "tourapi" | "mixed" | "fallback" }) {
+  const label =
+    source === "tourapi"
+      ? "관광공사 TourAPI 연동"
+      : source === "mixed"
+        ? "TourAPI + 보강 데이터"
+        : source === "loading"
+          ? "관광 데이터 불러오는 중"
+          : "샘플 데이터 표시 중";
+  const className =
+    source === "fallback"
+      ? "border-amber-100 bg-amber-50 text-amber-800"
+      : source === "loading"
+        ? "border-slate-100 bg-slate-50 text-slate-500"
+        : "border-blue-100 bg-blue-50 text-blue-700";
+
+  return (
+    <span className={`inline-flex items-center rounded-full border px-3 py-1.5 text-[10px] font-black ${className}`}>
+      {label}
+    </span>
+  );
+}
+
+function PlaceSourceBadge({ place, size = "sm" }: { place: Pick<Place, "contentId">; size?: "sm" | "md" }) {
+  const realData = Boolean(place.contentId);
+  return (
+    <span
+      className={`shrink-0 whitespace-nowrap rounded-md border font-black ${
+        size === "md" ? "px-3 py-1.5 text-[10px]" : "px-2 py-0.5 text-[9px]"
+      } ${realData ? "border-blue-100 bg-blue-50 text-blue-700" : "border-slate-100 bg-slate-50 text-slate-500"}`}
+    >
+      {getPlaceSourceDescription(place)}
+    </span>
+  );
+}
+
+function WeatherMiniBadge({ weather, size = "sm" }: { weather?: WeatherSummary; size?: "sm" | "md" }) {
+  const className = weather
+    ? {
+        good: "border-emerald-100 bg-emerald-50 text-emerald-700",
+        normal: "border-blue-100 bg-blue-50 text-blue-700",
+        caution: "border-amber-100 bg-amber-50 text-amber-800",
+      }[weather.activityLevel]
+    : "border-slate-100 bg-slate-50 text-slate-500";
+
+  return (
+    <span
+      className={`shrink-0 whitespace-nowrap rounded-md border font-black ${
+        size === "md" ? "px-3 py-1.5 text-[10px]" : "px-2 py-0.5 text-[9px]"
+      } ${className}`}
+    >
+      {weather ? (weather.source === "weatherapi" ? "기상청 API" : "기상 예비값") : "기상 확인 전"}
+    </span>
+  );
+}
+
+function MobileWeatherInline({ weather }: { weather?: WeatherSummary }) {
+  const levelClass = weather
+    ? {
+        good: "border-emerald-100 bg-emerald-50 text-emerald-800",
+        normal: "border-blue-100 bg-blue-50 text-blue-800",
+        caution: "border-amber-100 bg-amber-50 text-amber-800",
+      }[weather.activityLevel]
+    : "border-slate-100 bg-white/70 text-slate-500";
+
+  return (
+    <div className={`rounded-2xl border px-4 py-3 ${levelClass}`}>
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <p className="text-[10px] font-black">기상 기반 방문 적합도</p>
+        <WeatherMiniBadge weather={weather} />
+      </div>
+      {weather ? (
+        <>
+          <p className="text-[12px] font-black">{weather.activityLabel}</p>
+          <p className="mt-1 text-[11px] font-bold leading-5 opacity-80">{weather.message}</p>
+        </>
+      ) : (
+        <div className="flex items-center gap-2 text-[11px] font-bold">
+          <Loader2 size={13} className="animate-spin" />
+          선택 장소의 초단기예보를 확인하는 중입니다.
+        </div>
+      )}
     </div>
   );
 }

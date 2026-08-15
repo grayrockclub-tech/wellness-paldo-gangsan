@@ -31,11 +31,13 @@ WEATHER_API_KEY=
 ```
 
 API 키는 `NEXT_PUBLIC_`을 붙이지 않습니다. 서버 라우트에서만 읽어 브라우저에 노출되지 않게 합니다.
+공공데이터포털 TourAPI 키는 Encoding/Decoding 키 모두 입력 가능하도록 서버에서 정규화합니다.
 
 ## 서버 API 라우트
 
 - `GET /api/health`: 환경변수 설정 여부와 캐시 정책 확인
 - `GET /api/tour?operation=areaBasedList2&areaCode=32`: 강원도 TourAPI 샘플 호출
+- `GET /api/wellness/places`: TourAPI 관광지·음식점·숙박 데이터를 앱 장소 모델로 정규화
 - `GET /api/weather?operation=getVilageFcst&nx=73&ny=134`: 기상청 단기예보 샘플 호출
 - `GET /api/recommendations?weather=rain&duration=half-day`: 추천 로직 샘플
 

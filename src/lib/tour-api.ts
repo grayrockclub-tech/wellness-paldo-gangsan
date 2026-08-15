@@ -31,7 +31,7 @@ export function isTourApiOperation(value: string): value is TourApiOperation {
 }
 
 export function buildTourApiUrl({ operation, params = {} }: TourApiRequest) {
-  const serviceKey = requireEnv("TOUR_API_KEY");
+  const serviceKey = normalizeServiceKey(requireEnv("TOUR_API_KEY"));
   const url = new URL(`${TOUR_API_BASE_URL}/${operation}`);
 
   url.searchParams.set("serviceKey", serviceKey);
@@ -46,6 +46,14 @@ export function buildTourApiUrl({ operation, params = {} }: TourApiRequest) {
   }
 
   return url;
+}
+
+function normalizeServiceKey(serviceKey: string) {
+  try {
+    return decodeURIComponent(serviceKey);
+  } catch {
+    return serviceKey;
+  }
 }
 
 export async function fetchTourApi(request: TourApiRequest) {

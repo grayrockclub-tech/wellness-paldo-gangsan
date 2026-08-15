@@ -19,7 +19,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const GW_GREEN = "#0DB14B";
 const GW_BLUE = "#005BAA";
@@ -67,6 +67,11 @@ type PlaceCourseItem = Place & {
 
 type CourseItem = TravelItem | PlaceCourseItem;
 
+type TourPlacesResponse = {
+  source: "tourapi" | "fallback";
+  places: Place[];
+};
+
 const PLACES: Place[] = [
   { id: "gw-1", region: "평창", category: "spot", subCategory: "forest", name: "용평리조트 발왕산 기 스카이워크", addr: "강원도 평창군 대관령면 올림픽로 715", desc: "해발 1,458m 정상에서 즐기는 산림욕과 맑은 공기.", score: 4.8, lat: 37.6433, lng: 128.68 },
   { id: "gw-2", region: "정선", category: "spot", subCategory: "yoga", name: "파크로쉬 리조트앤웰니스", addr: "강원도 정선군 북평면 중봉길 9-12", desc: "요가와 명상, 숙면에 최적화된 프리미엄 웰니스 센터.", score: 4.9, lat: 37.4722, lng: 128.6541 },
@@ -97,6 +102,8 @@ export default function DesktopPage() {
   const [subCategoryFilter, setSubCategoryFilter] = useState<SubCategoryFilter>("전체");
   const [mustGoSpots, setMustGoSpots] = useState<string[]>([]);
   const [selectedPlace, setSelectedPlace] = useState<Place>(PLACES[0]);
+  const [places, setPlaces] = useState<Place[]>(PLACES);
+  const [tourDataSource, setTourDataSource] = useState<"loading" | "tourapi" | "fallback">("loading");
   const [travelMode, setTravelMode] = useState<TravelMode>("walk");
   const [planIntensity, setPlanIntensity] = useState<PlanIntensity>("relaxed");
   const [planMode, setPlanMode] = useState<PlanMode>("auto");
@@ -104,17 +111,46 @@ export default function DesktopPage() {
   const [isPlanning, setIsPlanning] = useState(false);
   const [generatedCourse, setGeneratedCourse] = useState<CourseItem[] | null>(null);
 
+  useEffect(() => {
+    let canceled = false;
+
+    async function loadTourPlaces() {
+      try {
+        const response = await fetch("/api/wellness/places");
+        if (!response.ok) throw new Error(`Failed to load places: ${response.status}`);
+        const data = (await response.json()) as TourPlacesResponse;
+        if (canceled) return;
+        if (Array.isArray(data.places) && data.places.length > 0) {
+          setPlaces(data.places);
+          setSelectedPlace(data.places[0]);
+          setMustGoSpots([]);
+          setGeneratedCourse(null);
+        }
+        setTourDataSource(data.source ?? "fallback");
+      } catch (error) {
+        console.error(error);
+        if (!canceled) setTourDataSource("fallback");
+      }
+    }
+
+    loadTourPlaces();
+
+    return () => {
+      canceled = true;
+    };
+  }, []);
+
   const filteredPlaces = useMemo(() => {
-    return PLACES.filter((place) => {
+    return places.filter((place) => {
       const matchMain = mainCategoryFilter === "all" || place.category === mainCategoryFilter;
       const matchSub = subCategoryFilter === "전체" || place.subCategory === subCategoryFilter;
       return matchMain && matchSub;
     });
-  }, [mainCategoryFilter, subCategoryFilter]);
+  }, [mainCategoryFilter, places, subCategoryFilter]);
   const subCategoryOptions: SubCategoryFilter[] =
     mainCategoryFilter === "all" ? ["전체"] : subCategoryMap[mainCategoryFilter];
 
-  const selectedMustGoPlaces = PLACES.filter((place) => mustGoSpots.includes(place.id));
+  const selectedMustGoPlaces = places.filter((place) => mustGoSpots.includes(place.id));
 
   const toggleMustGoSpot = (id: string) => {
     setMustGoSpots((prev) => {
@@ -131,6 +167,7 @@ export default function DesktopPage() {
     setIsPlanning(true);
     window.setTimeout(() => {
       const timeline = buildCourse({
+        places,
         mustGoIds: mustGoSpots,
         planIntensity,
         planMode,
@@ -247,7 +284,7 @@ export default function DesktopPage() {
                 모바일 화면
               </Link>
               <div className="rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 font-bold">
-                TourAPI Mock <span className="ml-2 text-[#087a36]">16건</span>
+                Data <span className="ml-2 text-[#087a36]">{tourDataSource === "tourapi" ? "TourAPI" : tourDataSource === "loading" ? "Loading" : "Sample"}</span>
               </div>
             </div>
           </header>
@@ -623,22 +660,24 @@ function Metric({ label, value }: { label: string; value: string }) {
 }
 
 function buildCourse({
+  places,
   mustGoIds,
   planIntensity,
   planMode,
   includeFoodAndStay,
   travelMode,
 }: {
+  places: Place[];
   mustGoIds: string[];
   planIntensity: PlanIntensity;
   planMode: PlanMode;
   includeFoodAndStay: boolean;
   travelMode: TravelMode;
 }) {
-  const spotsPool = PLACES.filter((place) => place.category === "spot");
-  const foodsPool = PLACES.filter((place) => place.category === "food");
-  const staysPool = PLACES.filter((place) => place.category === "stay");
-  const mandatory = PLACES.filter((place) => mustGoIds.includes(place.id));
+  const spotsPool = places.filter((place) => place.category === "spot");
+  const foodsPool = places.filter((place) => place.category === "food");
+  const staysPool = places.filter((place) => place.category === "stay");
+  const mandatory = places.filter((place) => mustGoIds.includes(place.id));
   const mandatorySpots = mandatory.filter((place) => place.category === "spot");
   const spotCount = planIntensity === "dense" ? 3 : 2;
   const selectedSpots =

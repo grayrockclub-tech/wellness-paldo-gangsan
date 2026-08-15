@@ -67,6 +67,11 @@ type SavedPlan = {
   course: CourseItem[];
 };
 
+type TourPlacesResponse = {
+  source: "tourapi" | "fallback";
+  places: Place[];
+};
+
 const KTO_MOCK_DATA: Place[] = [
   { id: "gw-1", region: "평창", category: "spot", subCategory: "forest", name: "용평리조트 발왕산 기 스카이워크", addr: "강원도 평창군 대관령면 올림픽로 715", desc: "해발 1,458m 정상에서 즐기는 산림욕과 맑은 공기.", score: 4.8, lat: 37.6433, lng: 128.68 },
   { id: "gw-2", region: "정선", category: "spot", subCategory: "yoga", name: "파크로쉬 리조트앤웰니스", addr: "강원도 정선군 북평면 중봉길 9-12", desc: "요가와 명상, 숙면에 최적화된 프리미엄 웰니스 센터.", score: 4.9, lat: 37.4722, lng: 128.6541 },
@@ -104,6 +109,8 @@ export default function Home() {
   const [isPlanning, setIsPlanning] = useState(false);
   const [generatedCourse, setGeneratedCourse] = useState<CourseItem[] | null>(null);
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
+  const [places, setPlaces] = useState<Place[]>(KTO_MOCK_DATA);
+  const [tourDataSource, setTourDataSource] = useState<"loading" | "tourapi" | "fallback">("loading");
 
   useEffect(() => {
     const desktopQuery = window.matchMedia("(min-width: 1024px)");
@@ -115,6 +122,32 @@ export default function Home() {
     console.log("Kakao SDK Initialized (Mock)");
   }, [router]);
 
+  useEffect(() => {
+    let canceled = false;
+
+    async function loadTourPlaces() {
+      try {
+        const response = await fetch("/api/wellness/places");
+        if (!response.ok) throw new Error(`Failed to load places: ${response.status}`);
+        const data = (await response.json()) as TourPlacesResponse;
+        if (canceled) return;
+        if (Array.isArray(data.places) && data.places.length > 0) {
+          setPlaces(data.places);
+        }
+        setTourDataSource(data.source ?? "fallback");
+      } catch (error) {
+        console.error(error);
+        if (!canceled) setTourDataSource("fallback");
+      }
+    }
+
+    loadTourPlaces();
+
+    return () => {
+      canceled = true;
+    };
+  }, []);
+
   const handleKakaoLogin = () => {
     setActiveTab("home");
   };
@@ -124,12 +157,12 @@ export default function Home() {
   };
 
   const filteredPlaces = useMemo(() => {
-    return KTO_MOCK_DATA.filter((place) => {
+    return places.filter((place) => {
       const matchMain = mainCategoryFilter === "all" || place.category === mainCategoryFilter;
       const matchSub = subCategoryFilter === "전체" || place.subCategory === subCategoryFilter;
       return matchMain && matchSub;
     });
-  }, [mainCategoryFilter, subCategoryFilter]);
+  }, [mainCategoryFilter, places, subCategoryFilter]);
 
   const toggleMustGoSpot = (event: React.MouseEvent, id: string) => {
     event.stopPropagation();
@@ -148,10 +181,10 @@ export default function Home() {
 
     setTimeout(() => {
       let selectedSpots: Place[] = [];
-      const spotsPool = KTO_MOCK_DATA.filter((place) => place.category === "spot");
-      const foodsPool = KTO_MOCK_DATA.filter((place) => place.category === "food");
-      const staysPool = KTO_MOCK_DATA.filter((place) => place.category === "stay");
-      const mandatory = KTO_MOCK_DATA.filter((place) => mustGoSpots.includes(place.id));
+      const spotsPool = places.filter((place) => place.category === "spot");
+      const foodsPool = places.filter((place) => place.category === "food");
+      const staysPool = places.filter((place) => place.category === "stay");
+      const mandatory = places.filter((place) => mustGoSpots.includes(place.id));
       const mandatorySpots = mandatory.filter((place) => place.category === "spot");
       const mandatoryFood = mandatory.find((place) => place.category === "food");
       const mandatoryStay = mandatory.find((place) => place.category === "stay");
@@ -308,6 +341,9 @@ export default function Home() {
               <p className="text-xs font-bold opacity-70" style={{ color: GW_BLUE }}>
                 강원도의 청정 힐링 공간을 만나보세요
               </p>
+              <p className="mt-2 text-[10px] font-black uppercase tracking-wide text-slate-400">
+                Data: {tourDataSource === "tourapi" ? "TourAPI" : tourDataSource === "loading" ? "Loading" : "Sample fallback"}
+              </p>
             </div>
 
             <div className="mb-4 grid grid-cols-4 gap-2">
@@ -406,7 +442,7 @@ export default function Home() {
                     {mustGoSpots.length > 0 ? (
                       <div className="flex flex-wrap gap-2">
                         {mustGoSpots.map((id) => {
-                          const spot = KTO_MOCK_DATA.find((place) => place.id === id);
+                          const spot = places.find((place) => place.id === id);
                           if (!spot) return null;
                           return (
                             <span key={id} onClick={(event) => toggleMustGoSpot(event, id)} className="glass-button flex cursor-pointer items-center rounded-full px-3 py-1.5 text-[10px] font-bold">

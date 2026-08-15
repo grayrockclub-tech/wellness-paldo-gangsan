@@ -92,15 +92,15 @@ const categoryTargets: Record<WellnessPlaceCategory, number> = {
 };
 
 const areaListRequests: Array<{ contentTypeId: string; rows: number }> = [
-  { contentTypeId: "12", rows: 120 },
-  { contentTypeId: "39", rows: 80 },
-  { contentTypeId: "32", rows: 60 },
+  { contentTypeId: "12", rows: 50 },
+  { contentTypeId: "39", rows: 30 },
+  { contentTypeId: "32", rows: 30 },
 ];
 
 const keywordRequests = [
-  ...["휴양림", "숲", "온천", "스파", "수목원", "생태", "사찰", "힐링"].map((keyword) => ({ keyword, rows: 10 })),
-  ...["산채", "곤드레", "황태", "순두부", "막국수"].map((keyword) => ({ keyword, rows: 8 })),
-  ...["리조트", "호텔", "펜션", "한옥"].map((keyword) => ({ keyword, rows: 8 })),
+  ...["휴양림", "숲", "사찰"].map((keyword) => ({ keyword, rows: 8 })),
+  ...["산채", "곤드레"].map((keyword) => ({ keyword, rows: 8 })),
+  ...["리조트", "한옥"].map((keyword) => ({ keyword, rows: 8 })),
 ];
 
 const stronglyRelevantClassCodes = new Set([
@@ -161,10 +161,12 @@ export async function getWellnessPlacesFromTourApi(): Promise<WellnessPlacesResu
   const warnings: string[] = [];
 
   try {
-    const [areaItems, keywordItems] = await Promise.all([
-      Promise.all(areaListRequests.map(({ contentTypeId, rows }) => fetchAreaList(contentTypeId, rows))),
-      Promise.all(keywordRequests.map(({ keyword, rows }) => fetchKeywordList(keyword, rows))),
+    const [areaResults, keywordResults] = await Promise.all([
+      Promise.allSettled(areaListRequests.map(({ contentTypeId, rows }) => fetchAreaList(contentTypeId, rows))),
+      Promise.allSettled(keywordRequests.map(({ keyword, rows }) => fetchKeywordList(keyword, rows))),
     ]);
+    const areaItems = collectTourItems(areaResults, warnings, "area");
+    const keywordItems = collectTourItems(keywordResults, warnings, "keyword");
     const items = dedupeTourItems([...areaItems.flat(), ...keywordItems.flat()]);
     const apiItemCount = items.length;
 
@@ -197,6 +199,18 @@ export async function getWellnessPlacesFromTourApi(): Promise<WellnessPlacesResu
     warnings.push(error instanceof Error ? error.message : "TourAPI request failed.");
     return fallbackResult(warnings);
   }
+}
+
+function collectTourItems(
+  results: Array<PromiseSettledResult<TourItem[]>>,
+  warnings: string[],
+  label: string,
+) {
+  return results.flatMap((result, index) => {
+    if (result.status === "fulfilled") return result.value;
+    warnings.push(`${label} TourAPI request ${index + 1} failed: ${result.reason instanceof Error ? result.reason.message : "unknown error"}`);
+    return [];
+  });
 }
 
 function mergeWithFallbackPlaces(places: WellnessPlace[]) {

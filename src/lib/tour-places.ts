@@ -46,6 +46,11 @@ type TourItem = {
   title?: string;
 };
 
+type TourDetailItem = {
+  contentid?: string | number;
+  overview?: string;
+};
+
 type WellnessPlacesResult = {
   source: "tourapi" | "mixed" | "fallback";
   generatedAt: string;
@@ -89,6 +94,12 @@ const categoryTargets: Record<WellnessPlaceCategory, number> = {
   spot: 18,
   food: 10,
   stay: 8,
+};
+
+const detailOverviewTargets: Record<WellnessPlaceCategory, number> = {
+  spot: 10,
+  food: 6,
+  stay: 6,
 };
 
 const areaListRequests: Array<{ contentTypeId: string; rows: number }> = [
@@ -170,7 +181,7 @@ export async function getWellnessPlacesFromTourApi(): Promise<WellnessPlacesResu
     const items = dedupeTourItems([...areaItems.flat(), ...keywordItems.flat()]);
     const apiItemCount = items.length;
 
-    const places = selectWellnessPlaces(items);
+    const places = await enrichPlacesWithDetailOverview(selectWellnessPlaces(items), warnings);
 
     if (places.length === 0) {
       warnings.push(
@@ -323,6 +334,85 @@ function selectWellnessPlaces(items: TourItem[]) {
   }
 
   return selected;
+}
+
+async function enrichPlacesWithDetailOverview(places: WellnessPlace[], warnings: string[]) {
+  const detailTargetIds = new Set(
+    (["spot", "food", "stay"] as const).flatMap((category) =>
+      places
+        .filter((place) => place.category === category)
+        .slice(0, detailOverviewTargets[category])
+        .map((place) => place.id),
+    ),
+  );
+  const targetPlaces = places.filter((place) => detailTargetIds.has(place.id));
+  const detailResults = await Promise.allSettled(targetPlaces.map((place) => fetchDetailCommon(place)));
+  const overviewByPlaceId = new Map<string, string>();
+
+  targetPlaces.forEach((place, index) => {
+    const result = detailResults[index];
+    if (result.status === "rejected") {
+      warnings.push(`detailCommon2 request for ${place.name} failed: ${result.reason instanceof Error ? result.reason.message : "unknown error"}`);
+      return;
+    }
+
+    const overview = cleanOverview(result.value?.overview);
+    if (overview) overviewByPlaceId.set(place.id, overview);
+  });
+
+  return places.map((place) => ({ ...place, desc: overviewByPlaceId.get(place.id) ?? place.desc }));
+}
+
+async function fetchDetailCommon(place: WellnessPlace) {
+  if (!place.contentId) return null;
+
+  const cacheKey = `wellness-places:detail-common:${place.contentId}:${place.contentTypeId ?? ""}`;
+  const { data } = await getCached(cacheKey, 60 * 60 * 24 * 7, () =>
+    fetchTourApi({
+      operation: "detailCommon2",
+      params: {
+        contentId: place.contentId,
+        contentTypeId: place.contentTypeId,
+        defaultYN: "Y",
+        firstImageYN: "Y",
+        areacodeYN: "Y",
+        catcodeYN: "Y",
+        addrinfoYN: "Y",
+        mapinfoYN: "Y",
+        overviewYN: "Y",
+      },
+    }),
+  );
+
+  return extractTourDetailItem(data);
+}
+
+function extractTourDetailItem(data: unknown): TourDetailItem | null {
+  const items = extractTourItems(data);
+  if (items.length > 0) return items[0] as TourDetailItem;
+
+  if (!isRecord(data)) return null;
+  const response = data.response;
+  if (!isRecord(response)) return null;
+  const body = response.body;
+  if (!isRecord(body)) return null;
+  const item = isRecord(body.items) ? body.items.item : undefined;
+
+  if (Array.isArray(item) && isRecord(item[0])) return item[0] as TourDetailItem;
+  if (isRecord(item)) return item as TourDetailItem;
+  return null;
+}
+
+function cleanOverview(overview?: string) {
+  return overview
+    ?.replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function mapTourItem(item: TourItem, category: WellnessPlaceCategory, fitScore: number): WellnessPlace | null {

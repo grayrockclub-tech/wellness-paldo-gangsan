@@ -34,14 +34,33 @@ export function getLatestForecastBase(now = new Date()) {
   };
 }
 
+export function getLatestUltraShortForecastBase(now = new Date()) {
+  const kst = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+
+  if (kst.getMinutes() < 45) {
+    kst.setHours(kst.getHours() - 1);
+  }
+
+  const yyyy = kst.getFullYear();
+  const mm = String(kst.getMonth() + 1).padStart(2, "0");
+  const dd = String(kst.getDate()).padStart(2, "0");
+  const hh = String(kst.getHours()).padStart(2, "0");
+
+  return {
+    baseDate: `${yyyy}${mm}${dd}`,
+    baseTime: `${hh}30`,
+  };
+}
+
 export function buildWeatherApiUrl({ operation, params = {} }: WeatherApiRequest) {
   const serviceKey = requireEnv("WEATHER_API_KEY");
-  const { baseDate, baseTime } = getLatestForecastBase();
+  const { baseDate, baseTime } =
+    operation === "getUltraSrtFcst" ? getLatestUltraShortForecastBase() : getLatestForecastBase();
   const url = new URL(`${WEATHER_API_BASE_URL}/${operation}`);
 
   url.searchParams.set("serviceKey", serviceKey);
   url.searchParams.set("dataType", "JSON");
-  url.searchParams.set("numOfRows", "80");
+  url.searchParams.set("numOfRows", operation === "getUltraSrtFcst" ? "60" : "80");
   url.searchParams.set("pageNo", "1");
   url.searchParams.set("base_date", baseDate);
   url.searchParams.set("base_time", baseTime);

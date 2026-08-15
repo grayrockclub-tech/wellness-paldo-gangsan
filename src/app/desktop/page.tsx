@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { buildWellnessCourse, type PlaceCourseItem as BuiltPlaceCourseItem, type WellnessCourseItem } from "@/lib/course-builder";
 
 const GW_GREEN = "#0DB14B";
 const GW_BLUE = "#005BAA";
@@ -52,24 +53,31 @@ type Place = {
   score: number;
   lat: number;
   lng: number;
+  contentId?: string;
+  contentTypeId?: string;
+  image?: string;
 };
 
-type TravelItem = {
-  type: "travel";
-  duration: number;
-  travelType: TravelMode;
-};
-
-type PlaceCourseItem = Place & {
-  type: PlaceCategory;
-  timeRange: string;
-};
-
-type CourseItem = TravelItem | PlaceCourseItem;
+type PlaceCourseItem = BuiltPlaceCourseItem<Place>;
+type CourseItem = WellnessCourseItem<Place>;
 
 type TourPlacesResponse = {
   source: "tourapi" | "mixed" | "fallback";
   places: Place[];
+};
+
+type WeatherSummary = {
+  source: "weatherapi" | "fallback";
+  forecastTime?: string;
+  temperature?: number;
+  humidity?: number;
+  windSpeed?: number;
+  sky: string;
+  precipitation: string;
+  activityLevel: "good" | "normal" | "caution";
+  activityLabel: string;
+  message: string;
+  recommendationHint: string;
 };
 
 const PLACES: Place[] = [
@@ -97,6 +105,14 @@ const subCategoryMap: Record<PlaceCategory, SubCategoryFilter[]> = {
   stay: ["전체", "resort", "wellness", "healing", "hotel"],
 };
 
+function getPlaceSourceLabel(place: Pick<Place, "contentId">) {
+  return place.contentId ? "TourAPI" : "Sample";
+}
+
+function getPlaceSourceDescription(place: Pick<Place, "contentId">) {
+  return place.contentId ? "한국관광공사 TourAPI" : "샘플 데이터";
+}
+
 export default function DesktopPage() {
   const [mainCategoryFilter, setMainCategoryFilter] = useState<MainCategoryFilter>("all");
   const [subCategoryFilter, setSubCategoryFilter] = useState<SubCategoryFilter>("전체");
@@ -110,6 +126,7 @@ export default function DesktopPage() {
   const [includeFoodAndStay, setIncludeFoodAndStay] = useState(true);
   const [isPlanning, setIsPlanning] = useState(false);
   const [generatedCourse, setGeneratedCourse] = useState<CourseItem[] | null>(null);
+  const [weatherByPlaceId, setWeatherByPlaceId] = useState<Record<string, WeatherSummary>>({});
 
   useEffect(() => {
     let canceled = false;
@@ -139,6 +156,42 @@ export default function DesktopPage() {
       canceled = true;
     };
   }, []);
+
+  useEffect(() => {
+    let canceled = false;
+
+    async function loadWeather() {
+      try {
+        const response = await fetch(`/api/wellness/weather?lat=${selectedPlace.lat}&lng=${selectedPlace.lng}`);
+        if (!response.ok) throw new Error(`Failed to load weather: ${response.status}`);
+        const data = (await response.json()) as WeatherSummary;
+        if (!canceled) {
+          setWeatherByPlaceId((current) => ({ ...current, [selectedPlace.id]: data }));
+        }
+      } catch {
+        if (!canceled) {
+          setWeatherByPlaceId((current) => ({
+            ...current,
+            [selectedPlace.id]: {
+              source: "fallback",
+              sky: "날씨 확인 필요",
+              precipitation: "정보 없음",
+              activityLevel: "normal",
+              activityLabel: "기상 확인 대기",
+              message: "기상 API 응답을 아직 확인하지 못했습니다.",
+              recommendationHint: "실제 운영에서는 선택한 장소 좌표 기준의 초단기예보로 추천 사유를 보강합니다.",
+            },
+          }));
+        }
+      }
+    }
+
+    loadWeather();
+
+    return () => {
+      canceled = true;
+    };
+  }, [selectedPlace]);
 
   const filteredPlaces = useMemo(() => {
     return places.filter((place) => {
@@ -296,6 +349,7 @@ export default function DesktopPage() {
               <PlaceDetailPanel
                 place={selectedPlace}
                 selected={mustGoSpots.includes(selectedPlace.id)}
+                weather={weatherByPlaceId[selectedPlace.id]}
                 onToggle={() => toggleMustGoSpot(selectedPlace.id)}
               />
             </section>
@@ -488,7 +542,17 @@ function MapMarker({ place, index, selected }: { place: Place; index: number; se
   );
 }
 
-function PlaceDetailPanel({ place, selected, onToggle }: { place: Place; selected: boolean; onToggle: () => void }) {
+function PlaceDetailPanel({
+  place,
+  selected,
+  weather,
+  onToggle,
+}: {
+  place: Place;
+  selected: boolean;
+  weather?: WeatherSummary;
+  onToggle: () => void;
+}) {
   const Icon = place.category === "food" ? Utensils : place.category === "stay" ? BedDouble : Leaf;
 
   return (
@@ -509,20 +573,62 @@ function PlaceDetailPanel({ place, selected, onToggle }: { place: Place; selecte
         </button>
       </div>
       <div className="mt-5">
-        <span className="rounded-lg bg-[#f1f5ef] px-3 py-1 text-xs font-black text-[#526158]">{getCategoryLabel(place.category)}</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-lg bg-[#f1f5ef] px-3 py-1 text-xs font-black text-[#526158]">{getCategoryLabel(place.category)}</span>
+          <span className={`rounded-lg px-3 py-1 text-xs font-black ${place.contentId ? "bg-blue-50 text-blue-700" : "bg-[#f2f6f1] text-[#66756c]"}`}>
+            {getPlaceSourceDescription(place)}
+          </span>
+        </div>
         <h3 className="mt-4 text-2xl font-black leading-8">{place.name}</h3>
-        <p className="mt-3 text-sm leading-6 text-[#526158]">{place.desc}</p>
+        <div className="mt-4 rounded-lg bg-[#f7faf6] px-4 py-3">
+          <p className="text-[11px] font-black text-[#66756c]">장소 설명</p>
+          <p className="mt-2 line-clamp-5 text-sm leading-6 text-[#526158]">{place.desc}</p>
+        </div>
         <p className="mt-4 flex items-start gap-2 text-sm font-bold leading-6 text-[#66756c]">
           <MapPin size={17} className="mt-1 shrink-0" style={{ color: GW_GREEN }} />
           {place.addr}
         </p>
       </div>
+      <WeatherInsightCard weather={weather} />
       <dl className="mt-6 grid grid-cols-3 gap-3">
         <Metric label="지역" value={place.region} />
         <Metric label="평점" value={place.score.toFixed(1)} />
         <Metric label="좌표" value={`${place.lat.toFixed(2)}, ${place.lng.toFixed(2)}`} />
       </dl>
     </article>
+  );
+}
+
+function WeatherInsightCard({ weather }: { weather?: WeatherSummary }) {
+  const levelClass = weather
+    ? {
+        good: "border-[#cfe8d5] bg-[#f4fbf6] text-[#087a36]",
+        normal: "border-blue-100 bg-blue-50 text-[#005BAA]",
+        caution: "border-amber-100 bg-amber-50 text-amber-800",
+      }[weather.activityLevel]
+    : "border-[#dce6dc] bg-[#f7faf6] text-[#66756c]";
+
+  return (
+    <section className={`mt-4 rounded-lg border px-4 py-3 ${levelClass}`}>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-[11px] font-black">기상 기반 방문 적합도</p>
+        <span className="rounded-md bg-white/70 px-2 py-1 text-[10px] font-black">
+          {weather ? (weather.source === "weatherapi" ? "기상청 API" : "예비값") : "확인 중"}
+        </span>
+      </div>
+      {weather ? (
+        <>
+          <p className="text-sm font-black">{weather.activityLabel}</p>
+          <p className="mt-1 text-xs font-bold leading-5 opacity-80">{weather.message}</p>
+          <p className="mt-2 text-xs font-medium leading-5 opacity-80">{weather.recommendationHint}</p>
+        </>
+      ) : (
+        <div className="flex items-center gap-2 text-xs font-bold">
+          <Loader2 size={14} className="animate-spin" />
+          선택 장소의 초단기예보를 불러오는 중입니다.
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -554,6 +660,9 @@ function PlaceCard({
             <div className="flex items-center gap-2">
               <span className="rounded-md bg-white px-2 py-1 text-[11px] font-black text-[#526158]">{place.region}</span>
               <span className="rounded-md bg-[#ebf8ef] px-2 py-1 text-[11px] font-black text-[#087a36]">{getCategoryLabel(place.category)}</span>
+              <span className={`rounded-md px-2 py-1 text-[11px] font-black ${place.contentId ? "bg-blue-50 text-blue-700" : "bg-white text-[#8a978f]"}`}>
+                {getPlaceSourceLabel(place)}
+              </span>
             </div>
             <h4 className="mt-3 line-clamp-2 text-sm font-black leading-5 text-[#17211b]">{place.name}</h4>
           </div>
@@ -562,7 +671,10 @@ function PlaceCard({
           <CheckCircle2 size={18} />
         </button>
       </div>
-      <p className="mt-3 line-clamp-2 text-xs leading-5 text-[#64746b]">{place.desc}</p>
+      <div className="mt-3">
+        <p className="text-[11px] font-black text-[#8a978f]">장소 설명</p>
+        <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#64746b]">{place.desc}</p>
+      </div>
       <div className="mt-4 flex items-center gap-1 text-xs font-black text-[#66756c]">
         <Star size={14} className="fill-[#F59E0B] text-[#F59E0B]" />
         {place.score.toFixed(1)}
@@ -595,6 +707,19 @@ function Timeline({ course, travelMode }: { course: CourseItem[]; travelMode: Tr
             </div>
             <h4 className="mt-3 text-sm font-black leading-5">{item.name}</h4>
             <p className="mt-2 text-xs font-bold text-[#66756c]">{getCategoryLabel(item.category)} · {item.region}</p>
+            <div className="mt-3 rounded-lg bg-white px-3 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] font-black text-[#66756c]">장소 설명</span>
+                <span className={`rounded-md px-2 py-1 text-[10px] font-black ${item.contentId ? "bg-blue-50 text-blue-700" : "bg-[#f2f6f1] text-[#66756c]"}`}>
+                  {getPlaceSourceLabel(item)}
+                </span>
+              </div>
+              <p className="mt-2 line-clamp-2 text-xs font-medium leading-5 text-[#526158]">{item.desc}</p>
+            </div>
+            <p className="mt-2 rounded-lg border border-[#cfe8d5] bg-[#f4fbf6] px-3 py-2 text-xs font-bold leading-5 text-[#526158]">
+              <span className="mb-1 block text-[11px] font-black text-[#087a36]">추천 사유</span>
+              {item.recommendationReason}
+            </p>
           </article>
         ),
       )}
@@ -674,62 +799,7 @@ function buildCourse({
   includeFoodAndStay: boolean;
   travelMode: TravelMode;
 }) {
-  const spotsPool = places.filter((place) => place.category === "spot");
-  const foodsPool = places.filter((place) => place.category === "food");
-  const staysPool = places.filter((place) => place.category === "stay");
-  const mandatory = places.filter((place) => mustGoIds.includes(place.id));
-  const mandatorySpots = mandatory.filter((place) => place.category === "spot");
-  const spotCount = planIntensity === "dense" ? 3 : 2;
-  const selectedSpots =
-    planMode === "semi-auto"
-      ? [...mandatorySpots, ...spotsPool.filter((place) => !mustGoIds.includes(place.id))].slice(0, spotCount)
-      : spotsPool.slice(0, spotCount);
-  const selectedFood = mandatory.find((place) => place.category === "food") ?? foodsPool[0];
-  const selectedStay = mandatory.find((place) => place.category === "stay") ?? staysPool[1];
-  const timeline: CourseItem[] = [];
-  const currentTime = new Date();
-  currentTime.setHours(10, 0, 0);
-
-  addPlace(timeline, currentTime, selectedSpots[0], 120);
-
-  if (includeFoodAndStay && selectedFood) {
-    addTravel(timeline, currentTime, travelMode, travelMode === "drive" ? 20 : 40);
-    addPlace(timeline, currentTime, selectedFood, 90);
-  }
-
-  if (selectedSpots[1]) {
-    addTravel(timeline, currentTime, travelMode, travelMode === "drive" ? 25 : 50);
-    addPlace(timeline, currentTime, selectedSpots[1], 120);
-  }
-
-  if (planIntensity === "dense" && selectedSpots[2]) {
-    addTravel(timeline, currentTime, travelMode, travelMode === "drive" ? 20 : 40);
-    addPlace(timeline, currentTime, selectedSpots[2], 90);
-  }
-
-  if (includeFoodAndStay && selectedStay) {
-    addTravel(timeline, currentTime, travelMode, travelMode === "drive" ? 30 : 60);
-    addPlace(timeline, currentTime, selectedStay, 60, " (체크인 및 휴식)");
-  }
-
-  return timeline;
-}
-
-function addPlace(timeline: CourseItem[], currentTime: Date, place: Place | undefined, duration: number, suffix = "") {
-  if (!place) return;
-  const start = timeText(currentTime);
-  currentTime.setMinutes(currentTime.getMinutes() + duration);
-  const end = timeText(currentTime);
-  timeline.push({ ...place, type: place.category, timeRange: `${start} - ${end}${suffix}` });
-}
-
-function addTravel(timeline: CourseItem[], currentTime: Date, travelType: TravelMode, duration: number) {
-  timeline.push({ type: "travel", duration, travelType });
-  currentTime.setMinutes(currentTime.getMinutes() + duration);
-}
-
-function timeText(date: Date) {
-  return date.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
+  return buildWellnessCourse({ places, mustGoIds, planIntensity, planMode, includeFoodAndStay, travelMode });
 }
 
 function isPlaceCourseItem(item: CourseItem): item is PlaceCourseItem {

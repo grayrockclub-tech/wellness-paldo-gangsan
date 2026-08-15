@@ -374,19 +374,12 @@ async function enrichPlacesWithDetailOverview(places: WellnessPlace[], warnings:
 async function fetchDetailCommon(place: WellnessPlace) {
   if (!place.contentId) return null;
 
-  const cacheKey = `wellness-places:detail-common:v2:${place.contentId}`;
+  const cacheKey = `wellness-places:detail-common:v3:${place.contentId}`;
   const { data } = await getCached(cacheKey, 60 * 60 * 24 * 7, () =>
     fetchTourApi({
       operation: "detailCommon2",
       params: {
         contentId: place.contentId,
-        defaultYN: "Y",
-        firstImageYN: "Y",
-        areacodeYN: "Y",
-        catcodeYN: "Y",
-        addrinfoYN: "Y",
-        mapinfoYN: "Y",
-        overviewYN: "Y",
       },
     }),
   );

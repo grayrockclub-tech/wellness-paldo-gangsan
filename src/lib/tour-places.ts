@@ -44,7 +44,7 @@ type TourItem = {
 };
 
 type WellnessPlacesResult = {
-  source: "tourapi" | "fallback";
+  source: "tourapi" | "mixed" | "fallback";
   generatedAt: string;
   places: WellnessPlace[];
   warnings: string[];
@@ -102,9 +102,19 @@ export async function getWellnessPlacesFromTourApi(): Promise<WellnessPlacesResu
       ...stays.map((item, index) => mapTourItem(item, "stay", index)),
     ].filter((place): place is WellnessPlace => Boolean(place));
 
-    if (places.length < 6) {
-      warnings.push("TourAPI returned too few usable places. Fallback sample data is being used.");
+    if (places.length === 0) {
+      warnings.push("TourAPI returned no usable places. Fallback sample data is being used.");
       return fallbackResult(warnings);
+    }
+
+    if (places.length < fallbackPlaces.length) {
+      warnings.push(`TourAPI returned ${places.length} usable places. Sample places are supplementing the first screen.`);
+      return {
+        source: "mixed",
+        generatedAt: new Date().toISOString(),
+        places: mergeWithFallbackPlaces(places),
+        warnings,
+      };
     }
 
     return {
@@ -117,6 +127,15 @@ export async function getWellnessPlacesFromTourApi(): Promise<WellnessPlacesResu
     warnings.push(error instanceof Error ? error.message : "TourAPI request failed.");
     return fallbackResult(warnings);
   }
+}
+
+function mergeWithFallbackPlaces(places: WellnessPlace[]) {
+  const usedNames = new Set(places.map((place) => place.name));
+  const supplements = fallbackPlaces
+    .filter((place) => !usedNames.has(place.name))
+    .map((place) => ({ ...place, id: `sample-${place.id}` }));
+
+  return [...places, ...supplements].slice(0, fallbackPlaces.length);
 }
 
 async function fetchTourList(operation: "areaBasedList2", contentTypeId: string, numOfRows: number) {

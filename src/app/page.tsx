@@ -68,7 +68,7 @@ type SavedPlan = {
 };
 
 type TourPlacesResponse = {
-  source: "tourapi" | "fallback";
+  source: "tourapi" | "mixed" | "fallback";
   places: Place[];
 };
 
@@ -110,7 +110,7 @@ export default function Home() {
   const [generatedCourse, setGeneratedCourse] = useState<CourseItem[] | null>(null);
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
   const [places, setPlaces] = useState<Place[]>(KTO_MOCK_DATA);
-  const [tourDataSource, setTourDataSource] = useState<"loading" | "tourapi" | "fallback">("loading");
+  const [tourDataSource, setTourDataSource] = useState<"loading" | "tourapi" | "mixed" | "fallback">("loading");
 
   useEffect(() => {
     const desktopQuery = window.matchMedia("(min-width: 1024px)");
@@ -342,7 +342,7 @@ export default function Home() {
                 강원도의 청정 힐링 공간을 만나보세요
               </p>
               <p className="mt-2 text-[10px] font-black uppercase tracking-wide text-slate-400">
-                Data: {tourDataSource === "tourapi" ? "TourAPI" : tourDataSource === "loading" ? "Loading" : "Sample fallback"}
+                Data: {tourDataSource === "tourapi" ? "TourAPI" : tourDataSource === "mixed" ? "TourAPI + Sample" : tourDataSource === "loading" ? "Loading" : "Sample fallback"}
               </p>
             </div>
 

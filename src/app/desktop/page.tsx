@@ -68,7 +68,7 @@ type PlaceCourseItem = Place & {
 type CourseItem = TravelItem | PlaceCourseItem;
 
 type TourPlacesResponse = {
-  source: "tourapi" | "fallback";
+  source: "tourapi" | "mixed" | "fallback";
   places: Place[];
 };
 
@@ -103,7 +103,7 @@ export default function DesktopPage() {
   const [mustGoSpots, setMustGoSpots] = useState<string[]>([]);
   const [selectedPlace, setSelectedPlace] = useState<Place>(PLACES[0]);
   const [places, setPlaces] = useState<Place[]>(PLACES);
-  const [tourDataSource, setTourDataSource] = useState<"loading" | "tourapi" | "fallback">("loading");
+  const [tourDataSource, setTourDataSource] = useState<"loading" | "tourapi" | "mixed" | "fallback">("loading");
   const [travelMode, setTravelMode] = useState<TravelMode>("walk");
   const [planIntensity, setPlanIntensity] = useState<PlanIntensity>("relaxed");
   const [planMode, setPlanMode] = useState<PlanMode>("auto");
@@ -284,7 +284,7 @@ export default function DesktopPage() {
                 모바일 화면
               </Link>
               <div className="rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 font-bold">
-                Data <span className="ml-2 text-[#087a36]">{tourDataSource === "tourapi" ? "TourAPI" : tourDataSource === "loading" ? "Loading" : "Sample"}</span>
+                Data <span className="ml-2 text-[#087a36]">{tourDataSource === "tourapi" ? "TourAPI" : tourDataSource === "mixed" ? "TourAPI + Sample" : tourDataSource === "loading" ? "Loading" : "Sample"}</span>
               </div>
             </div>
           </header>

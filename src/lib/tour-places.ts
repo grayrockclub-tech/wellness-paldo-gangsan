@@ -152,7 +152,6 @@ async function fetchTourList(operation: "areaBasedList2", contentTypeId: string,
         numOfRows,
         pageNo: 1,
         arrange: "O",
-        listYN: "Y",
       },
     }),
   );

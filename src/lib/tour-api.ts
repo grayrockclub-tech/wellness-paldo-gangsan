@@ -65,5 +65,28 @@ export async function fetchTourApi(request: TourApiRequest) {
     throw new Error(`TourAPI request failed with ${response.status}`);
   }
 
-  return response.json();
+  const data = await response.json();
+  assertSuccessfulTourApiResponse(data, request.operation);
+
+  return data;
+}
+
+function assertSuccessfulTourApiResponse(data: unknown, operation: TourApiOperation) {
+  if (!isRecord(data)) return;
+
+  const response = data.response;
+  if (!isRecord(response)) return;
+
+  const header = response.header;
+  if (!isRecord(header)) return;
+
+  const resultCode = String(header.resultCode ?? "");
+  const resultMsg = String(header.resultMsg ?? "Unknown TourAPI error");
+  if (resultCode && resultCode !== "0000" && resultCode !== "00") {
+    throw new Error(`TourAPI ${operation} returned ${resultCode}: ${resultMsg}`);
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }

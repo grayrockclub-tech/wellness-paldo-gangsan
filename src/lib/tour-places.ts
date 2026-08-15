@@ -95,6 +95,7 @@ export async function getWellnessPlacesFromTourApi(): Promise<WellnessPlacesResu
       fetchTourList("areaBasedList2", "39", 18),
       fetchTourList("areaBasedList2", "32", 18),
     ]);
+    const apiItemCount = spots.length + food.length + stays.length;
 
     const places = [
       ...spots.map((item, index) => mapTourItem(item, "spot", index)),
@@ -103,7 +104,9 @@ export async function getWellnessPlacesFromTourApi(): Promise<WellnessPlacesResu
     ].filter((place): place is WellnessPlace => Boolean(place));
 
     if (places.length === 0) {
-      warnings.push("TourAPI returned no usable places. Fallback sample data is being used.");
+      warnings.push(
+        `TourAPI returned ${apiItemCount} raw items and 0 usable places. Fallback sample data is being used.`,
+      );
       return fallbackResult(warnings);
     }
 

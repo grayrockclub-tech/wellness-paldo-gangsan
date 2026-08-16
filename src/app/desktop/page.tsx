@@ -156,6 +156,115 @@ function getPlaceSourceDescription(place: Pick<Place, "contentId">) {
   return place.contentId ? "한국관광공사 TourAPI" : "샘플 데이터";
 }
 
+function createWeatherFallback(): WeatherSummary {
+  return {
+    source: "fallback",
+    sky: "날씨 확인 필요",
+    precipitation: "정보 없음",
+    activityLevel: "normal",
+    activityLabel: "기상 확인 대기",
+    message: "기상 API 응답을 아직 확인하지 못했습니다.",
+    recommendationHint: "실제 운영에서는 선택한 장소 좌표 기준의 초단기예보로 추천 사유를 보강합니다.",
+  };
+}
+
+async function loadCourseCandidateWeather({
+  places,
+  mustGoIds,
+  knownWeather,
+  includeFoodAndStay,
+  planIntensity,
+}: {
+  places: Place[];
+  mustGoIds: string[];
+  knownWeather: Record<string, WeatherSummary>;
+  includeFoodAndStay: boolean;
+  planIntensity: PlanIntensity;
+}) {
+  const candidates = getCourseWeatherCandidates({ places, mustGoIds, includeFoodAndStay, planIntensity })
+    .filter((place) => !knownWeather[place.id])
+    .slice(0, 10);
+  if (candidates.length === 0) return {};
+
+  const updates: Record<string, WeatherSummary> = {};
+
+  await Promise.all(
+    candidates.map(async (place) => {
+      try {
+        const response = await fetch(`/api/wellness/weather?lat=${place.lat}&lng=${place.lng}`);
+        if (!response.ok) throw new Error(`Failed to load weather: ${response.status}`);
+        updates[place.id] = (await response.json()) as WeatherSummary;
+      } catch {
+        updates[place.id] = createWeatherFallback();
+      }
+    }),
+  );
+
+  return updates;
+}
+
+function getCourseWeatherCandidates({
+  places,
+  mustGoIds,
+  includeFoodAndStay,
+  planIntensity,
+}: {
+  places: Place[];
+  mustGoIds: string[];
+  includeFoodAndStay: boolean;
+  planIntensity: PlanIntensity;
+}) {
+  const mustGoSet = new Set(mustGoIds);
+  const requiredPlaces = places.filter((place) => mustGoSet.has(place.id));
+  const spotLimit = planIntensity === "dense" ? 7 : 5;
+  const scoredSpots = places
+    .filter((place) => place.category === "spot")
+    .sort((a, b) => b.score - a.score)
+    .slice(0, spotLimit);
+  const supportingPlaces = includeFoodAndStay
+    ? (["food", "stay"] as const).flatMap((category) =>
+        places
+          .filter((place) => place.category === category)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 3),
+      )
+    : [];
+
+  return uniquePlaces([...requiredPlaces, ...scoredSpots, ...supportingPlaces]);
+}
+
+function uniquePlaces<TPlace extends Pick<Place, "id">>(places: TPlace[]) {
+  const seen = new Set<string>();
+  return places.filter((place) => {
+    if (seen.has(place.id)) return false;
+    seen.add(place.id);
+    return true;
+  });
+}
+
+function buildCourseEvidence(course: CourseItem[], travelMode: TravelMode, weatherByPlaceId: Record<string, WeatherSummary>) {
+  const placeItems = course.filter(isPlaceCourseItem);
+  const travelMinutes = course.reduce((total, item) => item.type === "travel" ? total + item.duration : total, 0);
+  const weatherItems = placeItems.map((place) => weatherByPlaceId[place.id]).filter(Boolean);
+  const goodWeatherCount = weatherItems.filter((weather) => weather.activityLevel === "good").length;
+  const cautionWeatherCount = weatherItems.filter((weather) => weather.activityLevel === "caution").length;
+  const tourApiCount = placeItems.filter((place) => place.contentId).length;
+  const regionCount = new Set(placeItems.map((place) => place.region)).size;
+
+  return [
+    travelMode === "walk"
+      ? `뚜벅이 기준 이동 ${travelMinutes}분 이내로 동선을 압축`
+      : `자동차 기준 이동 ${travelMinutes}분 규모로 권역 연결`,
+    cautionWeatherCount > 0
+      ? `기상 부담 ${cautionWeatherCount}곳을 고려해 실내·회복형 장소 보강`
+      : goodWeatherCount > 0
+        ? `야외 적합 예보 ${goodWeatherCount}곳을 우선 반영`
+        : "기상 예보 확인값을 추천 점수에 반영",
+    `TourAPI 장소 ${tourApiCount}/${placeItems.length}곳 기반`,
+    regionCount === 1 ? `${placeItems[0]?.region ?? "강원"} 권역 중심 일정` : `${regionCount}개 권역을 이동 부담 기준으로 정렬`,
+  ];
+}
+
 export default function DesktopPage() {
   const [mainCategoryFilter, setMainCategoryFilter] = useState<MainCategoryFilter>("all");
   const [subCategoryFilter, setSubCategoryFilter] = useState<SubCategoryFilter>("전체");
@@ -216,15 +325,7 @@ export default function DesktopPage() {
         if (!canceled) {
           setWeatherByPlaceId((current) => ({
             ...current,
-            [selectedPlace.id]: {
-              source: "fallback",
-              sky: "날씨 확인 필요",
-              precipitation: "정보 없음",
-              activityLevel: "normal",
-              activityLabel: "기상 확인 대기",
-              message: "기상 API 응답을 아직 확인하지 못했습니다.",
-              recommendationHint: "실제 운영에서는 선택한 장소 좌표 기준의 초단기예보로 추천 사유를 보강합니다.",
-            },
+            [selectedPlace.id]: createWeatherFallback(),
           }));
         }
       }
@@ -248,6 +349,9 @@ export default function DesktopPage() {
     mainCategoryFilter === "all" ? ["전체"] : subCategoryMap[mainCategoryFilter];
 
   const selectedMustGoPlaces = places.filter((place) => mustGoSpots.includes(place.id));
+  const generatedCourseEvidence = useMemo(() => {
+    return generatedCourse ? buildCourseEvidence(generatedCourse, travelMode, weatherByPlaceId) : [];
+  }, [generatedCourse, travelMode, weatherByPlaceId]);
 
   useEffect(() => {
     placeCardRefs.current[selectedPlace.id]?.scrollIntoView({
@@ -268,8 +372,20 @@ export default function DesktopPage() {
     });
   };
 
-  const generateCourse = () => {
+  const generateCourse = async () => {
     setIsPlanning(true);
+    const planningStartedAt = Date.now();
+    const courseWeather = await loadCourseCandidateWeather({
+      places,
+      mustGoIds: mustGoSpots,
+      knownWeather: weatherByPlaceId,
+      includeFoodAndStay,
+      planIntensity,
+    });
+    const nextWeatherByPlaceId = { ...weatherByPlaceId, ...courseWeather };
+    setWeatherByPlaceId(nextWeatherByPlaceId);
+    const remainingDelay = Math.max(0, 900 - (Date.now() - planningStartedAt));
+
     window.setTimeout(() => {
       const timeline = buildCourse({
         places,
@@ -278,10 +394,11 @@ export default function DesktopPage() {
         planMode,
         includeFoodAndStay,
         travelMode,
+        weatherByPlaceId: nextWeatherByPlaceId,
       });
       setGeneratedCourse(timeline);
       setIsPlanning(false);
-    }, 900);
+    }, remainingDelay);
   };
 
   return (
@@ -513,7 +630,10 @@ export default function DesktopPage() {
             </div>
             <div className="max-h-[calc(100vh-558px)] min-h-[280px] overflow-auto p-5">
               {generatedCourse ? (
-                <Timeline course={generatedCourse} travelMode={travelMode} />
+                <div className="space-y-4">
+                  <CourseEvidencePanel items={generatedCourseEvidence} />
+                  <Timeline course={generatedCourse} travelMode={travelMode} weatherByPlaceId={weatherByPlaceId} />
+                </div>
               ) : (
                 <div className="flex min-h-[260px] flex-col items-center justify-center rounded-lg bg-[#f4f7f3] px-6 text-center">
                   <Map size={34} className="mb-3 text-[#9aad9f]" />
@@ -936,7 +1056,31 @@ function PlaceCard({
   );
 }
 
-function Timeline({ course, travelMode }: { course: CourseItem[]; travelMode: TravelMode }) {
+function CourseEvidencePanel({ items }: { items: string[] }) {
+  return (
+    <section className="rounded-lg border border-[#cfe8d5] bg-[#f4fbf6] px-4 py-3">
+      <p className="text-[11px] font-black text-[#087a36]">추천 기준 요약</p>
+      <div className="mt-2 grid gap-2">
+        {items.map((item) => (
+          <p key={item} className="flex gap-2 text-xs font-bold leading-5 text-[#526158]">
+            <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-[#0DB14B]" />
+            <span>{item}</span>
+          </p>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function Timeline({
+  course,
+  travelMode,
+  weatherByPlaceId,
+}: {
+  course: CourseItem[];
+  travelMode: TravelMode;
+  weatherByPlaceId: Record<string, WeatherSummary>;
+}) {
   return (
     <div className="space-y-4">
       {course.map((item, index) =>
@@ -959,7 +1103,10 @@ function Timeline({ course, travelMode }: { course: CourseItem[]; travelMode: Tr
               )}
             </div>
             <h4 className="mt-3 text-sm font-black leading-5">{item.name}</h4>
-            <p className="mt-2 text-xs font-bold text-[#66756c]">{getCategoryLabel(item.category)} · {item.region}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <p className="text-xs font-bold text-[#66756c]">{getCategoryLabel(item.category)} · {item.region}</p>
+              <CourseWeatherPill weather={weatherByPlaceId[item.id]} />
+            </div>
             <div className="mt-3 rounded-lg bg-white px-3 py-2">
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-black text-[#66756c]">장소 설명</span>
@@ -967,7 +1114,10 @@ function Timeline({ course, travelMode }: { course: CourseItem[]; travelMode: Tr
               <p className="mt-2 line-clamp-2 text-xs font-medium leading-5 text-[#526158]">{item.desc}</p>
             </div>
             <p className="mt-2 rounded-lg border border-[#cfe8d5] bg-[#f4fbf6] px-3 py-2 text-xs font-bold leading-5 text-[#526158]">
-              <span className="mb-1 block text-[11px] font-black text-[#087a36]">추천 사유</span>
+              <span className="mb-1 flex items-center justify-between text-[11px] font-black text-[#087a36]">
+                <span>추천 로직</span>
+                <span className="rounded-md bg-white/80 px-2 py-0.5 text-[10px]">기상·이동 반영</span>
+              </span>
               {item.recommendationReason}
             </p>
           </article>
@@ -975,6 +1125,25 @@ function Timeline({ course, travelMode }: { course: CourseItem[]; travelMode: Tr
       )}
     </div>
   );
+}
+
+function CourseWeatherPill({ weather }: { weather?: WeatherSummary }) {
+  const label = weather
+    ? {
+        good: "야외 적합",
+        normal: "보통",
+        caution: "기상 주의",
+      }[weather.activityLevel]
+    : "기상 확인";
+  const className = weather
+    ? {
+        good: "bg-emerald-50 text-[#087a36]",
+        normal: "bg-blue-50 text-[#005BAA]",
+        caution: "bg-amber-50 text-amber-800",
+      }[weather.activityLevel]
+    : "bg-[#f2f6f1] text-[#66756c]";
+
+  return <span className={`rounded-md px-2 py-1 text-[10px] font-black ${className}`}>{label}</span>;
 }
 
 function ControlGroup({ title, children }: { title: string; children: React.ReactNode }) {
@@ -1041,6 +1210,7 @@ function buildCourse({
   planMode,
   includeFoodAndStay,
   travelMode,
+  weatherByPlaceId,
 }: {
   places: Place[];
   mustGoIds: string[];
@@ -1048,8 +1218,9 @@ function buildCourse({
   planMode: PlanMode;
   includeFoodAndStay: boolean;
   travelMode: TravelMode;
+  weatherByPlaceId: Record<string, WeatherSummary>;
 }) {
-  return buildWellnessCourse({ places, mustGoIds, planIntensity, planMode, includeFoodAndStay, travelMode });
+  return buildWellnessCourse({ places, mustGoIds, planIntensity, planMode, includeFoodAndStay, travelMode, weatherByPlaceId });
 }
 
 function isPlaceCourseItem(item: CourseItem): item is PlaceCourseItem {

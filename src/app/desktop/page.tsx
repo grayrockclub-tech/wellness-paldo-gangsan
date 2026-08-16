@@ -10,6 +10,7 @@ import {
   Loader2,
   Map,
   MapPin,
+  Menu,
   Navigation,
   Save,
   Search,
@@ -279,6 +280,7 @@ export default function DesktopPage() {
   const [isPlanning, setIsPlanning] = useState(false);
   const [generatedCourse, setGeneratedCourse] = useState<CourseItem[] | null>(null);
   const [weatherByPlaceId, setWeatherByPlaceId] = useState<Record<string, WeatherSummary>>({});
+  const [isPlannerOpen, setIsPlannerOpen] = useState(false);
   const placeCardRefs = useRef<Record<string, HTMLElement | null>>({});
 
   useEffect(() => {
@@ -374,6 +376,7 @@ export default function DesktopPage() {
 
   const generateCourse = async () => {
     setIsPlanning(true);
+    setIsPlannerOpen(true);
     const planningStartedAt = Date.now();
     const courseWeather = await loadCourseCandidateWeather({
       places,
@@ -403,21 +406,50 @@ export default function DesktopPage() {
 
   return (
     <main className="min-h-screen bg-[#eef3ee] text-[#17211b]">
-      <div className="mx-auto grid min-h-screen max-w-[1600px] grid-cols-[268px_minmax(0,1fr)_420px]">
-        <aside className="border-r border-[#d3dfd4] bg-[#fbfcf8] px-6 py-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl text-white" style={{ backgroundColor: GW_BLUE }}>
-              <Leaf size={26} />
+      <div className="mx-auto min-h-screen max-w-[1760px] bg-[#f7faf6]">
+        <header className="sticky top-0 z-30 border-b border-[#d3dfd4] bg-white/95 px-6 py-4 backdrop-blur">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl text-white" style={{ backgroundColor: GW_BLUE }}>
+                <Leaf size={26} />
+              </div>
+              <div>
+                <h1 className="text-lg font-black tracking-normal" style={{ color: GW_BLUE }}>
+                  웰니스 강원
+                </h1>
+                <p className="text-xs font-bold text-[#5f6f66]">원스톱 치유 여행</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-lg font-black tracking-normal" style={{ color: GW_BLUE }}>
-                웰니스 강원
-              </h1>
-              <p className="text-xs font-bold text-[#5f6f66]">원스톱 치유 여행</p>
+
+            <div className="min-w-0 flex-1 px-2">
+              <p className="text-sm font-black" style={{ color: GW_GREEN }}>
+                강원특별자치도 웰니스 루트
+              </p>
+              <h2 className="mt-1 text-2xl font-black tracking-normal lg:text-3xl" style={{ color: GW_BLUE }}>
+                스팟·맛집·숙소를 한 화면에서 설계
+              </h2>
+            </div>
+
+            <div className="flex items-center gap-3 text-sm">
+              <Link href="/?view=mobile" className="rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 font-bold text-[#526158]">
+                모바일 화면
+              </Link>
+              <div className="rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 font-bold">
+                Data <span className="ml-2 text-[#087a36]">{tourDataSource === "tourapi" ? "TourAPI" : tourDataSource === "mixed" ? "TourAPI + Sample" : tourDataSource === "loading" ? "Loading" : "Sample"}</span>
+              </div>
+              <button
+                onClick={() => setIsPlannerOpen(true)}
+                className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-black text-white shadow-sm"
+                style={{ backgroundColor: GW_BLUE }}
+              >
+                <Menu size={18} />
+                루트 설계
+                {mustGoSpots.length > 0 && <span className="rounded-md bg-white/20 px-2 py-0.5 text-xs">{mustGoSpots.length}개 선택</span>}
+              </button>
             </div>
           </div>
 
-          <nav className="mt-10 grid gap-2">
+          <nav className="mt-4 flex gap-2 overflow-x-auto pb-1">
             {[
               { id: "all", label: "전체 탐색", icon: Search },
               { id: "spot", label: "웰니스 스팟", icon: Leaf },
@@ -433,8 +465,8 @@ export default function DesktopPage() {
                     setMainCategoryFilter(item.id as MainCategoryFilter);
                     setSubCategoryFilter("전체");
                   }}
-                  className={`flex items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-black transition ${
-                    active ? "text-white shadow-sm" : "text-[#526158] hover:bg-white"
+                  className={`flex shrink-0 items-center gap-2 rounded-lg border px-4 py-3 text-left text-sm font-black transition ${
+                    active ? "border-transparent text-white shadow-sm" : "border-[#d3dfd4] bg-[#fbfcf8] text-[#526158] hover:bg-white"
                   }`}
                   style={active ? { backgroundColor: GW_BLUE } : {}}
                 >
@@ -443,76 +475,46 @@ export default function DesktopPage() {
                 </button>
               );
             })}
-          </nav>
 
-          <section className="mt-8 rounded-lg border border-[#d3dfd4] bg-white p-4">
-            <p className="flex items-center gap-2 text-sm font-black" style={{ color: GW_BLUE }}>
-              <Filter size={16} />
-              세부 필터
-            </p>
-            <div className="mt-4 grid gap-2">
+            <div className="flex shrink-0 items-center gap-2 rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-3 py-2">
+              <Filter size={16} style={{ color: GW_BLUE }} />
               {subCategoryOptions.map((category) => (
                 <button
                   key={category}
                   onClick={() => setSubCategoryFilter(category)}
-                  className={`rounded-lg border px-3 py-2 text-left text-xs font-bold ${
-                    subCategoryFilter === category ? "border-[#0DB14B] bg-[#ebf8ef] text-[#087a36]" : "border-[#dce6dc] text-[#617168]"
+                  className={`rounded-md border px-3 py-2 text-xs font-bold ${
+                    subCategoryFilter === category ? "border-[#0DB14B] bg-[#ebf8ef] text-[#087a36]" : "border-transparent bg-white text-[#617168]"
                   }`}
                 >
                   {getSubCategoryLabel(category)}
                 </button>
               ))}
             </div>
-          </section>
 
-          <section className="mt-6 rounded-lg border border-[#d3dfd4] bg-white p-4">
-            <p className="text-sm font-black" style={{ color: GW_BLUE }}>
-              꼭 가고 싶은 장소
-            </p>
-            <p className="mt-1 text-xs font-bold text-[#66756c]">{mustGoSpots.length}/3 선택됨</p>
-            <div className="mt-4 grid gap-2">
+            <div className="flex shrink-0 items-center gap-2 rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-3 py-2">
+              <span className="text-xs font-black" style={{ color: GW_BLUE }}>꼭 가고 싶은 장소</span>
+              <span className="rounded-md bg-[#ebf8ef] px-2 py-1 text-xs font-black text-[#087a36]">{mustGoSpots.length}/3</span>
               {selectedMustGoPlaces.length > 0 ? (
                 selectedMustGoPlaces.map((place) => (
                   <button
                     key={place.id}
                     onClick={() => toggleMustGoSpot(place.id)}
-                    className="flex items-center justify-between rounded-lg bg-[#f2f6f1] px-3 py-2 text-left text-xs font-bold text-[#2f4037]"
+                    className="flex max-w-[180px] items-center gap-2 rounded-md bg-white px-2 py-1 text-xs font-bold text-[#2f4037]"
                   >
                     <span className="truncate">{place.name}</span>
-                    <X size={14} />
+                    <X size={13} />
                   </button>
                 ))
               ) : (
-                <p className="rounded-lg bg-[#f2f6f1] px-3 py-4 text-xs leading-5 text-[#6b786f]">
-                  장소 카드의 체크 버튼으로 필수 장소를 지정할 수 있습니다.
-                </p>
+                <span className="text-xs font-bold text-[#66756c]">카드 체크로 지정</span>
               )}
             </div>
-          </section>
-        </aside>
+          </nav>
+        </header>
 
-        <section className="grid grid-rows-[auto_minmax(0,1fr)]">
-          <header className="flex items-center justify-between border-b border-[#d3dfd4] bg-white px-8 py-5">
-            <div>
-              <p className="text-sm font-black" style={{ color: GW_GREEN }}>
-                강원특별자치도 웰니스 루트
-              </p>
-              <h2 className="mt-1 text-3xl font-black tracking-normal" style={{ color: GW_BLUE }}>
-                스팟·맛집·숙소를 한 화면에서 설계
-              </h2>
-            </div>
-            <div className="flex items-center gap-3 text-sm">
-              <Link href="/?view=mobile" className="rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 font-bold text-[#526158]">
-                모바일 화면
-              </Link>
-              <div className="rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 font-bold">
-                Data <span className="ml-2 text-[#087a36]">{tourDataSource === "tourapi" ? "TourAPI" : tourDataSource === "mixed" ? "TourAPI + Sample" : tourDataSource === "loading" ? "Loading" : "Sample"}</span>
-              </div>
-            </div>
-          </header>
-
-          <div className="grid min-h-0 grid-rows-[660px_minmax(0,1fr)] gap-5 p-6">
-            <section className="grid min-h-0 grid-cols-[minmax(0,1fr)_360px] gap-5">
+        <section className="grid min-h-[calc(100vh-154px)] grid-cols-[minmax(0,1.15fr)_minmax(420px,0.85fr)] gap-5 p-6">
+          <div className="grid min-h-0 grid-rows-[minmax(520px,calc(100vh-220px))]">
+            <section className="grid min-h-0 grid-cols-[minmax(0,1fr)_380px] gap-5">
               <KakaoMapPanel selectedPlace={selectedPlace} generatedCourse={generatedCourse} onSelectPlace={setSelectedPlace} />
 
               <PlaceDetailPanel
@@ -522,44 +524,62 @@ export default function DesktopPage() {
                 onToggle={() => toggleMustGoSpot(selectedPlace.id)}
               />
             </section>
-
-            <section className="min-h-0 rounded-lg border border-[#d3dfd4] bg-white">
-              <div className="flex items-center justify-between border-b border-[#e1e8df] px-5 py-4">
-                <div>
-                  <h3 className="text-lg font-black">장소 탐색</h3>
-                  <p className="mt-1 text-xs font-bold text-[#66756c]">웰니스 스팟, 건강 맛집, 힐링 숙소를 함께 선택합니다.</p>
-                </div>
-                <span className="rounded-lg bg-[#ebf8ef] px-3 py-2 text-xs font-black text-[#087a36]">{filteredPlaces.length}개</span>
-              </div>
-              <div className="grid max-h-[calc(100vh-836px)] min-h-[300px] grid-cols-2 gap-3 overflow-auto p-4 xl:grid-cols-3">
-                {filteredPlaces.map((place) => (
-                  <PlaceCard
-                    key={place.id}
-                    cardRef={(node) => {
-                      placeCardRefs.current[place.id] = node;
-                    }}
-                    place={place}
-                    selected={selectedPlace.id === place.id}
-                    mustGo={mustGoSpots.includes(place.id)}
-                    onOpen={() => setSelectedPlace(place)}
-                    onToggle={() => toggleMustGoSpot(place.id)}
-                  />
-                ))}
-              </div>
-            </section>
           </div>
+
+          <section className="min-h-0 rounded-lg border border-[#d3dfd4] bg-white">
+            <div className="flex items-center justify-between border-b border-[#e1e8df] px-5 py-4">
+              <div>
+                <h3 className="text-lg font-black">장소 탐색</h3>
+                <p className="mt-1 text-xs font-bold text-[#66756c]">웰니스 스팟, 건강 맛집, 힐링 숙소를 함께 선택합니다.</p>
+              </div>
+              <span className="rounded-lg bg-[#ebf8ef] px-3 py-2 text-xs font-black text-[#087a36]">{filteredPlaces.length}개</span>
+            </div>
+            <div className="grid max-h-[calc(100vh-246px)] min-h-[520px] grid-cols-2 gap-3 overflow-auto p-4">
+              {filteredPlaces.map((place) => (
+                <PlaceCard
+                  key={place.id}
+                  cardRef={(node) => {
+                    placeCardRefs.current[place.id] = node;
+                  }}
+                  place={place}
+                  selected={selectedPlace.id === place.id}
+                  mustGo={mustGoSpots.includes(place.id)}
+                  onOpen={() => setSelectedPlace(place)}
+                  onToggle={() => toggleMustGoSpot(place.id)}
+                />
+              ))}
+            </div>
+          </section>
         </section>
 
-        <aside className="border-l border-[#d3dfd4] bg-[#fbfcf8] px-6 py-6">
+        {isPlannerOpen && (
+          <button
+            aria-label="루트 설계 패널 닫기"
+            className="fixed inset-0 z-40 bg-black/20"
+            onClick={() => setIsPlannerOpen(false)}
+          />
+        )}
+
+        <aside
+          className={`fixed bottom-0 right-0 top-0 z-50 w-[430px] max-w-[calc(100vw-24px)] overflow-auto border-l border-[#d3dfd4] bg-[#fbfcf8] px-6 py-6 shadow-2xl transition-transform duration-300 ${
+            isPlannerOpen ? "translate-x-0 pointer-events-auto" : "translate-x-full pointer-events-none"
+          }`}
+          aria-hidden={!isPlannerOpen}
+        >
           <section className="rounded-lg border border-[#d3dfd4] bg-white p-5">
             <div className="flex items-center justify-between">
               <h3 className="flex items-center gap-2 text-lg font-black" style={{ color: GW_BLUE }}>
                 <SlidersHorizontal size={18} />
                 원스톱 루트 설계
               </h3>
-              <span className="rounded-lg bg-[#eaf2ff] px-3 py-1 text-xs font-black" style={{ color: GW_BLUE }}>
-                MVP
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="rounded-lg bg-[#eaf2ff] px-3 py-1 text-xs font-black" style={{ color: GW_BLUE }}>
+                  MVP
+                </span>
+                <button onClick={() => setIsPlannerOpen(false)} className="rounded-lg border border-[#dce6dc] p-2 text-[#526158]" title="닫기">
+                  <X size={16} />
+                </button>
+              </div>
             </div>
 
             <ControlGroup title="설계 방식">

@@ -153,10 +153,6 @@ const subCategoryMap: Record<PlaceCategory, SubCategoryFilter[]> = {
   stay: ["전체", "resort", "wellness", "healing", "hotel"],
 };
 
-function getPlaceSourceDescription(place: Pick<Place, "contentId">) {
-  return place.contentId ? "한국관광공사 TourAPI" : "샘플 데이터";
-}
-
 function createWeatherFallback(): WeatherSummary {
   return {
     source: "fallback",
@@ -421,15 +417,6 @@ export default function DesktopPage() {
               </div>
             </div>
 
-            <div className="min-w-0 flex-1 px-2">
-              <p className="text-sm font-black" style={{ color: GW_GREEN }}>
-                강원특별자치도 웰니스 루트
-              </p>
-              <h2 className="mt-1 text-2xl font-black tracking-normal lg:text-3xl" style={{ color: GW_BLUE }}>
-                스팟·맛집·숙소를 한 화면에서 설계
-              </h2>
-            </div>
-
             <div className="flex items-center gap-3 text-sm">
               <Link href="/?view=mobile" className="rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 font-bold text-[#526158]">
                 모바일 화면
@@ -449,7 +436,7 @@ export default function DesktopPage() {
             </div>
           </div>
 
-          <nav className="mt-4 flex gap-2 overflow-x-auto pb-1">
+          <nav className="mt-5 flex gap-2 overflow-x-auto pb-1">
             {[
               { id: "all", label: "전체 탐색", icon: Search },
               { id: "spot", label: "웰니스 스팟", icon: Leaf },
@@ -512,8 +499,8 @@ export default function DesktopPage() {
           </nav>
         </header>
 
-        <section className="grid min-h-[calc(100vh-154px)] grid-cols-[minmax(0,1.15fr)_minmax(420px,0.85fr)] gap-5 p-6">
-          <div className="grid min-h-0 grid-rows-[minmax(520px,calc(100vh-220px))]">
+        <section className="grid min-h-[calc(100vh-136px)] grid-cols-[minmax(0,1.15fr)_minmax(420px,0.85fr)] gap-5 p-6">
+          <div className="grid min-h-0 grid-rows-[minmax(520px,calc(100vh-202px))]">
             <section className="grid min-h-0 grid-cols-[minmax(0,1fr)_380px] gap-5">
               <KakaoMapPanel selectedPlace={selectedPlace} generatedCourse={generatedCourse} onSelectPlace={setSelectedPlace} />
 
@@ -534,7 +521,7 @@ export default function DesktopPage() {
               </div>
               <span className="rounded-lg bg-[#ebf8ef] px-3 py-2 text-xs font-black text-[#087a36]">{filteredPlaces.length}개</span>
             </div>
-            <div className="grid max-h-[calc(100vh-246px)] min-h-[520px] grid-cols-2 gap-3 overflow-auto p-4">
+            <div className="grid max-h-[calc(100vh-228px)] min-h-[520px] grid-cols-2 gap-3 overflow-auto p-4">
               {filteredPlaces.map((place) => (
                 <PlaceCard
                   key={place.id}
@@ -948,30 +935,24 @@ function PlaceDetailPanel({
 
   return (
     <article className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-[#d3dfd4] bg-white p-5">
-      <div className="flex items-start justify-between">
-        <div className="flex h-14 w-14 items-center justify-center rounded-lg text-white" style={{ backgroundColor: getCategoryColor(place.category) }}>
-          <Icon size={26} />
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 items-start gap-4">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg text-white" style={{ backgroundColor: getCategoryColor(place.category) }}>
+            <Icon size={26} />
+          </div>
+          <h3 className="min-w-0 text-2xl font-black leading-8">{place.name}</h3>
         </div>
         <button
           onClick={onToggle}
-          className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-black ${
-            selected ? "border-[#005BAA] text-white" : "border-[#dce6dc] text-[#526158]"
-          }`}
+          aria-label={selected ? "꼭 가고 싶은 장소에서 해제" : "꼭 가고 싶은 장소로 선택"}
+          className={`shrink-0 rounded-lg p-2 ${selected ? "text-white" : "bg-white text-[#8a978f]"}`}
           style={selected ? { backgroundColor: GW_BLUE } : {}}
         >
-          <CheckCircle2 size={15} />
-          {selected ? "선택됨" : "꼭 가기"}
+          <CheckCircle2 size={18} />
         </button>
       </div>
-      <div className="mt-5 flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-lg bg-[#f1f5ef] px-3 py-1 text-xs font-black text-[#526158]">{getCategoryLabel(place.category)}</span>
-          <span className={`rounded-lg px-3 py-1 text-xs font-black ${place.contentId ? "bg-blue-50 text-blue-700" : "bg-[#f2f6f1] text-[#66756c]"}`}>
-            {getPlaceSourceDescription(place)}
-          </span>
-        </div>
-        <h3 className="mt-4 text-2xl font-black leading-8">{place.name}</h3>
-        <div className="mt-4 flex min-h-0 flex-1 flex-col rounded-lg bg-[#f7faf6] px-4 py-3">
+      <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex min-h-[220px] flex-1 flex-col rounded-lg bg-[#f7faf6] px-4 py-3">
           <p className="shrink-0 text-[11px] font-black text-[#66756c]">장소 설명</p>
           <div className="mt-2 min-h-0 flex-1 overflow-y-auto pb-3 pr-3">
             <p className="text-sm leading-6 text-[#526158]">{place.desc}</p>
@@ -983,7 +964,7 @@ function PlaceDetailPanel({
         </p>
       </div>
       <WeatherInsightCard weather={weather} />
-      <dl className="mt-6 grid grid-cols-3 gap-3">
+      <dl className="mt-4 grid grid-cols-3 gap-3">
         <Metric label="지역" value={place.region} />
         <Metric label="평점" value={place.score.toFixed(1)} />
         <Metric label="좌표" value={`${place.lat.toFixed(2)}, ${place.lng.toFixed(2)}`} />

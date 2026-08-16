@@ -284,13 +284,19 @@ export default function Home() {
   const [selectedMapPlaceId, setSelectedMapPlaceId] = useState<string | null>(null);
 
   useEffect(() => {
-    const forcedMobileView = new URLSearchParams(window.location.search).get("view") === "mobile";
+    const searchParams = new URLSearchParams(window.location.search);
+    const forcedMobileView = searchParams.get("view") === "mobile";
+    const requestedTab = searchParams.get("tab");
     const desktopQuery = window.matchMedia("(min-width: 1024px)");
     if (desktopQuery.matches && !forcedMobileView) {
       router.replace("/desktop");
       return;
     }
 
+    if (requestedTab === "home" || requestedTab === "planner" || requestedTab === "map" || requestedTab === "profile") {
+      const tabTimer = window.setTimeout(() => setActiveTab(requestedTab), 0);
+      return () => window.clearTimeout(tabTimer);
+    }
   }, [router]);
 
   useEffect(() => {

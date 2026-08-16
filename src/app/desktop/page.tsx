@@ -17,6 +17,7 @@ import {
   SlidersHorizontal,
   Star,
   Utensils,
+  User,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -433,6 +434,13 @@ export default function DesktopPage() {
                 루트 설계
                 {mustGoSpots.length > 0 && <span className="rounded-md bg-white/20 px-2 py-0.5 text-xs">{mustGoSpots.length}개 선택</span>}
               </button>
+              <Link
+                href="/?view=mobile&tab=profile"
+                className="flex items-center gap-2 rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 font-black text-[#005BAA] transition hover:bg-white"
+              >
+                <User size={18} />
+                MY
+              </Link>
             </div>
           </div>
 
@@ -940,7 +948,13 @@ function PlaceDetailPanel({
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg text-white" style={{ backgroundColor: getCategoryColor(place.category) }}>
             <Icon size={26} />
           </div>
-          <h3 className="min-w-0 text-2xl font-black leading-8">{place.name}</h3>
+          <div className="min-w-0">
+            <h3 className="text-2xl font-black leading-8">{place.name}</h3>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="shrink-0 whitespace-nowrap rounded-md bg-white px-2 py-1 text-[11px] font-black text-[#526158]">{place.region}</span>
+              <span className="shrink-0 whitespace-nowrap rounded-md bg-[#ebf8ef] px-2 py-1 text-[11px] font-black text-[#087a36]">{getCategoryLabel(place.category)}</span>
+            </div>
+          </div>
         </div>
         <button
           onClick={onToggle}
@@ -964,11 +978,6 @@ function PlaceDetailPanel({
         </p>
       </div>
       <WeatherInsightCard weather={weather} />
-      <dl className="mt-4 grid grid-cols-3 gap-3">
-        <Metric label="지역" value={place.region} />
-        <Metric label="평점" value={place.score.toFixed(1)} />
-        <Metric label="좌표" value={`${place.lat.toFixed(2)}, ${place.lng.toFixed(2)}`} />
-      </dl>
     </article>
   );
 }
@@ -1034,11 +1043,11 @@ function PlaceCard({
             <Icon size={20} />
           </div>
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-1.5">
+            <h4 className="line-clamp-2 text-sm font-black leading-5 text-[#17211b]">{place.name}</h4>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <span className="shrink-0 whitespace-nowrap rounded-md bg-white px-2 py-1 text-[11px] font-black text-[#526158]">{place.region}</span>
               <span className="shrink-0 whitespace-nowrap rounded-md bg-[#ebf8ef] px-2 py-1 text-[11px] font-black text-[#087a36]">{getCategoryLabel(place.category)}</span>
             </div>
-            <h4 className="mt-3 line-clamp-2 text-sm font-black leading-5 text-[#17211b]">{place.name}</h4>
           </div>
         </button>
         <button onClick={onToggle} className={`rounded-lg p-2 ${mustGo ? "text-white" : "bg-white text-[#8a978f]"}`} style={mustGo ? { backgroundColor: GW_BLUE } : {}}>
@@ -1192,15 +1201,6 @@ function ModeButton({ active, icon, label, onClick }: { active: boolean; icon: R
       {icon}
       {label}
     </button>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg bg-[#f2f6f1] p-3">
-      <dt className="text-[11px] font-black text-[#66756c]">{label}</dt>
-      <dd className="mt-1 truncate text-sm font-black text-[#17211b]">{value}</dd>
-    </div>
   );
 }
 

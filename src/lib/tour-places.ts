@@ -111,6 +111,7 @@ const areaListRequests: Array<{ contentTypeId: string; rows: number }> = [
 
 const keywordRequests = [
   ...["휴양림", "숲", "사찰"].map((keyword) => ({ keyword, rows: 8 })),
+  ...["웰니스", "치유", "명상", "요가", "템플스테이", "스파", "다도"].map((keyword) => ({ keyword, rows: 8 })),
   ...["산채", "곤드레"].map((keyword) => ({ keyword, rows: 8 })),
   ...["리조트", "한옥"].map((keyword) => ({ keyword, rows: 8 })),
 ];
@@ -461,7 +462,7 @@ function scoreWellnessFit(item: TourItem, category: WellnessPlaceCategory) {
   if (category === "food" && class2 === "FD01") score += 3;
   if (category === "stay" && ["AC01", "AC02", "AC03"].includes(class2)) score += 3;
   if (wellnessKeywordPattern.test(text)) score += 3;
-  if (/(휴양림|자연치유|웰니스|온천|스파|템플스테이|수목원|정원|산채|곤드레|황태|순두부|한옥|리조트)/.test(text)) {
+  if (/(휴양림|자연치유|웰니스|치유|명상|요가|온천|스파|템플스테이|템플|다도|수목원|정원|산채|곤드레|황태|순두부|한옥|리조트)/.test(text)) {
     score += 2;
   }
   if (weakFitPattern.test(text) && !/(자연|생태|공원|숲|휴양|한식|산채|곤드레|황태|순두부)/.test(text)) {
@@ -485,7 +486,7 @@ function inferSubCategory(name = "", addr = "", category: WellnessPlaceCategory,
   }
 
   if (/요가|뮤지엄|문화|체험|EX03|EX05/.test(text)) return "yoga";
-  if (/명상|사찰|월정사|한옥|다도|치유/.test(text)) return "meditation";
+  if (/명상|사찰|월정사|한옥|다도|치유|템플/.test(text)) return "meditation";
   return "forest";
 }
 

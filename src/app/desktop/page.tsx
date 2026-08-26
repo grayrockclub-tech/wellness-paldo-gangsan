@@ -4,6 +4,7 @@ import {
   BedDouble,
   Car,
   CheckCircle2,
+  Database,
   Filter,
   Footprints,
   Leaf,
@@ -440,6 +441,13 @@ export default function DesktopPage() {
               >
                 <User size={18} />
                 MY
+              </Link>
+              <Link
+                href="/admin/places"
+                className="flex items-center gap-2 rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 font-black text-[#005BAA] transition hover:bg-white"
+              >
+                <Database size={18} />
+                장소 입력
               </Link>
             </div>
           </div>

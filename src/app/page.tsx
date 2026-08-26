@@ -9,10 +9,12 @@ import {
   Car,
   CheckCircle2,
   Clock,
+  Database,
   Filter,
   Footprints,
   Leaf,
   Loader2,
+  LogOut,
   Map,
   MapPin,
   MessageCircle,
@@ -78,6 +80,18 @@ type WeatherSummary = {
   activityLabel: string;
   message: string;
   recommendationHint: string;
+};
+
+type SessionUser = {
+  id: string;
+  nickname: string;
+  email?: string;
+  profileImage?: string;
+};
+
+type SessionResponse = {
+  authenticated: boolean;
+  user: SessionUser | null;
 };
 
 type KakaoLatLng = unknown;
@@ -282,6 +296,7 @@ export default function Home() {
   const [tourDataSource, setTourDataSource] = useState<"loading" | "tourapi" | "mixed" | "fallback">("loading");
   const [weatherByPlaceId, setWeatherByPlaceId] = useState<Record<string, WeatherSummary>>({});
   const [selectedMapPlaceId, setSelectedMapPlaceId] = useState<string | null>(null);
+  const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -293,11 +308,41 @@ export default function Home() {
       return;
     }
 
-    if (requestedTab === "home" || requestedTab === "planner" || requestedTab === "map" || requestedTab === "profile") {
+    if (requestedTab === "home" || requestedTab === "planner" || requestedTab === "map") {
       const tabTimer = window.setTimeout(() => setActiveTab(requestedTab), 0);
       return () => window.clearTimeout(tabTimer);
     }
   }, [router]);
+
+  useEffect(() => {
+    let canceled = false;
+
+    async function loadSession() {
+      try {
+        const response = await fetch("/api/auth/session", { cache: "no-store" });
+        if (!response.ok) throw new Error(`Failed to load session: ${response.status}`);
+        const data = (await response.json()) as SessionResponse;
+        if (canceled) return;
+        setSessionUser(data.authenticated ? data.user : null);
+        const requestedTab = new URLSearchParams(window.location.search).get("tab");
+        if (data.authenticated && requestedTab === "profile") {
+          setActiveTab("profile");
+        } else if (data.authenticated) {
+          setActiveTab((current) => current === "login" ? "home" : current);
+        } else if (requestedTab === "profile") {
+          setActiveTab("login");
+        }
+      } catch {
+        if (!canceled) setSessionUser(null);
+      }
+    }
+
+    loadSession();
+
+    return () => {
+      canceled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let canceled = false;
@@ -356,7 +401,13 @@ export default function Home() {
   }, [viewingPlace]);
 
   const handleKakaoLogin = () => {
-    setActiveTab("home");
+    router.push("/api/auth/kakao/start");
+  };
+
+  const handleLogout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    setSessionUser(null);
+    setActiveTab("login");
   };
 
   const handleKakaoNavi = (destinationName: string) => {
@@ -920,17 +971,43 @@ export default function Home() {
         {activeTab === "profile" && (
           <div className="space-y-8 p-6">
             <div className="glass-panel flex items-center space-x-5 rounded-[2.5rem] p-6">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl text-white shadow-inner" style={{ backgroundImage: `linear-gradient(to bottom right, ${GW_GREEN}, ${GW_BLUE})` }}>
-                <User size={28} />
+              <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl text-white shadow-inner" style={{ backgroundImage: `linear-gradient(to bottom right, ${GW_GREEN}, ${GW_BLUE})` }}>
+                {sessionUser?.profileImage ? (
+                  <div
+                    aria-hidden="true"
+                    className="h-full w-full bg-cover bg-center"
+                    style={{ backgroundImage: `url(${sessionUser.profileImage})` }}
+                  />
+                ) : (
+                  <User size={28} />
+                )}
               </div>
-              <div>
+              <div className="min-w-0">
                 <h3 className="text-lg font-black" style={{ color: GW_BLUE }}>
-                  카카오 여행자님
+                  {sessionUser ? `${sessionUser.nickname}님` : "카카오 여행자님"}
                 </h3>
                 <p className="mt-1 inline-block rounded border border-white bg-white/60 px-2 py-0.5 text-[11px] font-bold" style={{ color: GW_GREEN }}>
-                  강원 원스톱 웰니스 탐험가
+                  {sessionUser ? "카카오 로그인 연결됨" : "게스트 모드"}
                 </p>
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Link href="/admin/places" className="glass-panel flex items-center justify-center rounded-2xl px-4 py-4 text-[12px] font-black" style={{ color: GW_BLUE }}>
+                <Database size={16} className="mr-2" />
+                장소 입력
+              </Link>
+              {sessionUser ? (
+                <button onClick={handleLogout} className="glass-panel flex items-center justify-center rounded-2xl px-4 py-4 text-[12px] font-black text-slate-600">
+                  <LogOut size={16} className="mr-2" />
+                  로그아웃
+                </button>
+              ) : (
+                <button onClick={handleKakaoLogin} className="flex items-center justify-center rounded-2xl bg-[#FEE500] px-4 py-4 text-[12px] font-black text-black">
+                  <MessageCircle size={16} className="mr-2" fill="currentColor" />
+                  카카오 로그인
+                </button>
+              )}
             </div>
 
             <section>
@@ -1023,7 +1100,7 @@ export default function Home() {
         ].map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as ActiveTab)}
+            onClick={() => setActiveTab(tab.id === "profile" && !sessionUser ? "login" : tab.id as ActiveTab)}
             className={`flex h-14 w-14 flex-col items-center justify-center rounded-[1.2rem] transition-all duration-300 ${activeTab === tab.id ? "scale-105 bg-white shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
             style={activeTab === tab.id ? { color: GW_BLUE } : {}}
           >

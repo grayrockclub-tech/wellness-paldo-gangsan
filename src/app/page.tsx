@@ -580,23 +580,31 @@ export default function Home() {
 
   if (activeTab === "login") {
     return (
-      <div className="relative mx-auto flex min-h-screen max-w-md flex-col items-center justify-center overflow-hidden bg-slate-50 font-sans">
+      <div className="relative mx-auto flex min-h-screen w-full overflow-hidden bg-slate-50 font-sans lg:bg-[#f7fbf8]">
         <style>{styles}</style>
         <div className="animate-blob absolute left-[-10%] top-[-10%] h-96 w-96 rounded-full opacity-30 mix-blend-multiply blur-3xl" style={{ backgroundColor: GW_GREEN }} />
         <div className="animate-blob animation-delay-2000 absolute right-[-10%] top-[20%] h-96 w-96 rounded-full opacity-30 mix-blend-multiply blur-3xl" style={{ backgroundColor: GW_BLUE }} />
 
-        <div className="relative z-10 w-full p-8 text-center">
-          <div className="glass-panel mx-auto mb-8 flex h-24 w-24 items-center justify-center rounded-[2.5rem] border-white">
-            <Leaf size={48} style={{ color: GW_GREEN }} />
-          </div>
-          <h1 className="mb-3 text-4xl font-black tracking-tight" style={{ color: GW_BLUE }}>
-            웰니스 강원
-          </h1>
-          <p className="mb-12 text-sm font-bold tracking-wide opacity-80" style={{ color: GW_BLUE }}>
-            자연·맛집·숙소가 함께하는 원스톱 치유 여행
-          </p>
+        <div className="relative z-10 mx-auto grid w-full max-w-md items-center gap-8 p-8 text-center lg:max-w-6xl lg:grid-cols-[1fr_380px] lg:gap-16 lg:p-12 lg:text-left">
+          <section className="lg:pr-8">
+            <div className="glass-panel mx-auto mb-8 flex h-24 w-24 items-center justify-center rounded-[2.5rem] border-white lg:mx-0 lg:h-28 lg:w-28">
+              <Leaf size={48} style={{ color: GW_GREEN }} />
+            </div>
+            <p className="mb-3 text-xs font-black uppercase tracking-[0.2em]" style={{ color: GW_GREEN }}>
+              강원특별자치도 웰니스 루트
+            </p>
+            <h1 className="mb-4 text-4xl font-black tracking-tight lg:text-6xl lg:leading-tight" style={{ color: GW_BLUE }}>
+              웰니스 강원
+            </h1>
+            <p className="mx-auto mb-10 max-w-md text-sm font-bold leading-7 tracking-wide opacity-80 lg:mx-0 lg:text-base" style={{ color: GW_BLUE }}>
+              자연·맛집·숙소가 함께하는 원스톱 치유 여행
+            </p>
+          </section>
 
-          <div className="mx-auto w-full max-w-[280px] space-y-4">
+          <section className="glass-panel mx-auto w-full max-w-[360px] rounded-[2rem] p-6 text-center lg:p-8">
+            <h2 className="mb-2 text-xl font-black text-slate-900">로그인</h2>
+            <p className="mb-6 text-xs font-bold text-slate-500">저장한 루트와 장소 입력 기능을 이용할 수 있습니다.</p>
+            <div className="w-full space-y-4">
             <button
               onClick={handleKakaoLogin}
               className="flex w-full items-center justify-center rounded-2xl bg-[#FEE500] py-4 font-black text-black shadow-[0_8px_30px_rgba(254,229,0,0.3)] transition-all hover:bg-[#FEE500]/90 active:scale-95"
@@ -615,14 +623,15 @@ export default function Home() {
             >
               모니터용 화면 보기
             </Link>
-          </div>
+            </div>
+          </section>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="relative mx-auto min-h-screen max-w-md overflow-hidden bg-slate-50/50 font-sans text-slate-800 shadow-2xl">
+    <div className={`relative mx-auto min-h-screen overflow-hidden bg-slate-50/50 font-sans text-slate-800 ${activeTab === "profile" ? "w-full max-w-6xl shadow-none" : "max-w-md shadow-2xl"}`}>
       <style>{styles}</style>
       <div className="animate-blob pointer-events-none fixed left-[-15%] top-[-5%] h-80 w-80 rounded-full opacity-20 mix-blend-multiply blur-3xl" style={{ backgroundColor: GW_GREEN }} />
       <div className="animate-blob animation-delay-2000 pointer-events-none fixed right-[-10%] top-[40%] h-72 w-72 rounded-full opacity-15 mix-blend-multiply blur-3xl" style={{ backgroundColor: GW_BLUE }} />
@@ -969,74 +978,88 @@ export default function Home() {
         )}
 
         {activeTab === "profile" && (
-          <div className="space-y-8 p-6">
-            <div className="glass-panel flex items-center space-x-5 rounded-[2.5rem] p-6">
-              <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl text-white shadow-inner" style={{ backgroundImage: `linear-gradient(to bottom right, ${GW_GREEN}, ${GW_BLUE})` }}>
-                {sessionUser?.profileImage ? (
-                  <div
-                    aria-hidden="true"
-                    className="h-full w-full bg-cover bg-center"
-                    style={{ backgroundImage: `url(${sessionUser.profileImage})` }}
-                  />
-                ) : (
-                  <User size={28} />
-                )}
-              </div>
-              <div className="min-w-0">
-                <h3 className="text-lg font-black" style={{ color: GW_BLUE }}>
-                  {sessionUser ? `${sessionUser.nickname}님` : "카카오 여행자님"}
-                </h3>
-                <p className="mt-1 inline-block rounded border border-white bg-white/60 px-2 py-0.5 text-[11px] font-bold" style={{ color: GW_GREEN }}>
-                  {sessionUser ? "카카오 로그인 연결됨" : "게스트 모드"}
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <Link href="/admin/places" className="glass-panel flex items-center justify-center rounded-2xl px-4 py-4 text-[12px] font-black" style={{ color: GW_BLUE }}>
-                <Database size={16} className="mr-2" />
-                장소 입력
-              </Link>
-              {sessionUser ? (
-                <button onClick={handleLogout} className="glass-panel flex items-center justify-center rounded-2xl px-4 py-4 text-[12px] font-black text-slate-600">
-                  <LogOut size={16} className="mr-2" />
-                  로그아웃
-                </button>
-              ) : (
-                <button onClick={handleKakaoLogin} className="flex items-center justify-center rounded-2xl bg-[#FEE500] px-4 py-4 text-[12px] font-black text-black">
-                  <MessageCircle size={16} className="mr-2" fill="currentColor" />
-                  카카오 로그인
-                </button>
-              )}
-            </div>
-
-            <section>
-              <h4 className="mb-4 px-2 text-sm font-black text-slate-800">저장된 원스톱 루트 ({savedPlans.length})</h4>
-              <div className="space-y-4">
-                {savedPlans.length > 0 ? savedPlans.map((plan) => (
-                  <div key={plan.id} className="glass-panel rounded-[2rem] p-5">
-                    <div className="mb-4 flex items-center justify-between">
-                      <span className="rounded-md border border-white/60 bg-white/50 px-2.5 py-1 text-[10px] font-black text-slate-500">{plan.date} 생성</span>
-                      <button onClick={() => { setGeneratedCourse(plan.course); setActiveTab("map"); }} className="text-[10px] font-black" style={{ color: GW_BLUE }}>
-                        루트 보기 &rarr;
-                      </button>
-                    </div>
-                    <div className="no-scrollbar flex space-x-2 overflow-x-auto pb-1">
-                      {plan.course.filter(isPlaceCourseItem).map((place) => (
-                        <div key={`${plan.id}-${place.id}`} className="min-w-[85px] shrink-0 rounded-xl border border-white/80 bg-white/60 px-3 py-2.5 text-center shadow-sm">
-                          <span className="mb-0.5 block text-[8px] font-bold text-emerald-600">{place.category === "food" ? "맛집" : place.category === "stay" ? "숙소" : "스팟"}</span>
-                          <span className="block truncate text-[10px] font-bold text-slate-700">{place.name}</span>
-                        </div>
-                      ))}
-                    </div>
+          <div className="mx-auto space-y-6 p-6 lg:max-w-6xl lg:p-10">
+            <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start">
+              <section className="space-y-4">
+                <div className="glass-panel flex items-center space-x-5 rounded-[2.5rem] p-6 lg:flex-col lg:items-start lg:space-x-0 lg:space-y-6 lg:p-8">
+                  <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl text-white shadow-inner lg:h-20 lg:w-20" style={{ backgroundImage: `linear-gradient(to bottom right, ${GW_GREEN}, ${GW_BLUE})` }}>
+                    {sessionUser?.profileImage ? (
+                      <div
+                        aria-hidden="true"
+                        className="h-full w-full bg-cover bg-center"
+                        style={{ backgroundImage: `url(${sessionUser.profileImage})` }}
+                      />
+                    ) : (
+                      <User size={28} />
+                    )}
                   </div>
-                )) : (
-                  <div className="glass-panel rounded-[2rem] border-dashed py-12 text-center">
-                    <p className="text-[11px] font-bold text-slate-500">저장된 원스톱 루트가 없습니다.</p>
+                  <div className="min-w-0">
+                    <p className="mb-2 text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: GW_GREEN }}>
+                      My Wellness Route
+                    </p>
+                    <h3 className="text-lg font-black lg:text-3xl" style={{ color: GW_BLUE }}>
+                      {sessionUser ? `${sessionUser.nickname}님` : "카카오 여행자님"}
+                    </h3>
+                    <p className="mt-2 inline-block rounded border border-white bg-white/60 px-2 py-0.5 text-[11px] font-bold" style={{ color: GW_GREEN }}>
+                      {sessionUser ? "카카오 로그인 연결됨" : "게스트 모드"}
+                    </p>
                   </div>
-                )}
-              </div>
-            </section>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
+                  <Link href="/admin/places" className="glass-panel flex items-center justify-center rounded-2xl px-4 py-4 text-[12px] font-black lg:justify-start lg:px-6" style={{ color: GW_BLUE }}>
+                    <Database size={16} className="mr-2" />
+                    장소 입력
+                  </Link>
+                  {sessionUser ? (
+                    <button onClick={handleLogout} className="glass-panel flex items-center justify-center rounded-2xl px-4 py-4 text-[12px] font-black text-slate-600 lg:justify-start lg:px-6">
+                      <LogOut size={16} className="mr-2" />
+                      로그아웃
+                    </button>
+                  ) : (
+                    <button onClick={handleKakaoLogin} className="flex items-center justify-center rounded-2xl bg-[#FEE500] px-4 py-4 text-[12px] font-black text-black">
+                      <MessageCircle size={16} className="mr-2" fill="currentColor" />
+                      카카오 로그인
+                    </button>
+                  )}
+                </div>
+              </section>
+
+              <section className="glass-panel rounded-[2rem] p-5 lg:min-h-[360px] lg:p-8">
+                <div className="mb-5 flex items-end justify-between gap-4">
+                  <div>
+                    <p className="mb-2 text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: GW_GREEN }}>
+                      Saved Routes
+                    </p>
+                    <h4 className="text-lg font-black text-slate-800 lg:text-2xl">저장된 원스톱 루트 ({savedPlans.length})</h4>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  {savedPlans.length > 0 ? savedPlans.map((plan) => (
+                    <div key={plan.id} className="rounded-[1.5rem] border border-white/70 bg-white/50 p-5 shadow-sm">
+                      <div className="mb-4 flex items-center justify-between">
+                        <span className="rounded-md border border-white/60 bg-white/50 px-2.5 py-1 text-[10px] font-black text-slate-500">{plan.date} 생성</span>
+                        <button onClick={() => { setGeneratedCourse(plan.course); setActiveTab("map"); }} className="text-[10px] font-black" style={{ color: GW_BLUE }}>
+                          루트 보기 &rarr;
+                        </button>
+                      </div>
+                      <div className="no-scrollbar flex space-x-2 overflow-x-auto pb-1">
+                        {plan.course.filter(isPlaceCourseItem).map((place) => (
+                          <div key={`${plan.id}-${place.id}`} className="min-w-[85px] shrink-0 rounded-xl border border-white/80 bg-white/60 px-3 py-2.5 text-center shadow-sm">
+                            <span className="mb-0.5 block text-[8px] font-bold text-emerald-600">{place.category === "food" ? "맛집" : place.category === "stay" ? "숙소" : "스팟"}</span>
+                            <span className="block truncate text-[10px] font-bold text-slate-700">{place.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="flex min-h-[180px] items-center justify-center rounded-[2rem] border border-dashed border-white/80 bg-white/45 text-center lg:min-h-[240px]">
+                      <p className="text-[11px] font-bold text-slate-500">저장된 원스톱 루트가 없습니다.</p>
+                    </div>
+                  )}
+                </div>
+              </section>
+            </div>
           </div>
         )}
       </main>

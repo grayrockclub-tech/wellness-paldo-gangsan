@@ -457,16 +457,7 @@ function mergeRestaurantPlaces(tourPlaces: WellnessPlace[], restaurantPlaces: We
   if (restaurantPlaces.length === 0) return tourPlaces;
 
   const nonFoodPlaces = tourPlaces.filter((place) => place.category !== "food");
-  const tourFoodPlaces = tourPlaces.filter((place) => place.category === "food");
-  const seen = new Set<string>();
-  const foodPlaces = [...restaurantPlaces, ...tourFoodPlaces].filter((place) => {
-    const key = `${place.name.replace(/\s+/g, "")}:${place.addr.replace(/\s+/g, "")}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-
-  return [...nonFoodPlaces, ...foodPlaces.slice(0, categoryTargets.food)];
+  return [...nonFoodPlaces, ...restaurantPlaces];
 }
 
 function resolveCategory(item: TourItem): WellnessPlaceCategory {

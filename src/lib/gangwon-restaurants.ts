@@ -5,9 +5,11 @@ import { getKakaoRestApiKey } from "./kakao-auth";
 const RESTAURANT_DATASET_PATH = "/uddi:b5e09df5-615b-4d00-8692-826b13ab01c1";
 const RESTAURANT_CACHE_SECONDS = 60 * 60 * 24;
 const GEOCODE_CACHE_SECONDS = 60 * 60 * 24 * 30;
-const MAX_RESTAURANT_PLACES = 10;
+const MAX_RESTAURANT_PLACES = 100;
+const RESTAURANT_CANDIDATE_LIMIT = 120;
 const RESTAURANT_PAGE_SIZE = 1000;
-const RESTAURANT_SAMPLE_PAGE_COUNT = 5;
+const MAX_RESTAURANT_FETCH_PAGES = 20;
+const GEOCODE_CONCURRENCY = 15;
 
 type GangwonRestaurantRow = {
   업소명?: string;
@@ -54,6 +56,22 @@ const healthyFoodPattern = /산채|곤드레|황태|순두부|두부|막국수|�
 const nonTravelerRestaurantPattern =
   /직원식당|구내식당|산업체|단체급식|급식소|클럽하우스|골프장|휴게소|푸드코트|웨딩|예식장|장례식장|병원|의료원|학교|대학교|군부대|생활관|연수원|관공서|마트|백화점|편의점|슈퍼|이마트|홈플러스|롯데마트/;
 
+const majorRegionQuotas: Record<string, number> = {
+  춘천: 10,
+  원주: 10,
+  속초: 10,
+  강릉: 10,
+  동해: 8,
+  양양: 7,
+};
+
+const otherRegions = ["고성", "삼척", "영월", "인제", "정선", "평창", "홍천", "횡성", "태백", "양구", "철원", "화천"];
+
+const regionQuotas: Record<string, number> = Object.fromEntries([
+  ...Object.entries(majorRegionQuotas),
+  ...otherRegions.map((region, index) => [region, index < 9 ? 4 : 3]),
+]);
+
 export async function getGangwonRestaurantPlaces(): Promise<GangwonRestaurantPlace[]> {
   const kakaoRestApiKey = getKakaoRestApiKey();
   if (!kakaoRestApiKey) {
@@ -62,17 +80,15 @@ export async function getGangwonRestaurantPlaces(): Promise<GangwonRestaurantPla
 
   const rows = await fetchGangwonRestaurantRows();
   const candidates = selectRestaurantCandidates(rows);
-  const results = await Promise.allSettled(
-    candidates.map(async (row) => {
+  const results = await mapWithConcurrency(candidates, GEOCODE_CONCURRENCY, async (row) => {
       const address = row.도로명주소?.trim() ?? "";
       const coordinates = await geocodeAddress(address, kakaoRestApiKey);
       if (!coordinates) return null;
       return mapRestaurantRow(row, coordinates);
-    }),
-  );
+    });
 
   return results
-    .flatMap((result) => (result.status === "fulfilled" && result.value ? [result.value] : []))
+    .flatMap((result) => (result ? [result] : []))
     .slice(0, MAX_RESTAURANT_PLACES);
 }
 
@@ -84,8 +100,8 @@ async function fetchGangwonRestaurantRows() {
 
   const firstPage = await fetchRestaurantPage(serviceKey, 1);
   const totalPages = Math.max(1, Math.ceil((firstPage.totalCount ?? firstPage.rows.length) / RESTAURANT_PAGE_SIZE));
-  const samplePages = evenlySpacedPages(totalPages).filter((page) => page !== 1);
-  const otherPages = await Promise.all(samplePages.map((page) => fetchRestaurantPage(serviceKey, page)));
+  const pages = getRestaurantPages(totalPages).filter((page) => page !== 1);
+  const otherPages = await Promise.all(pages.map((page) => fetchRestaurantPage(serviceKey, page)));
   return [firstPage, ...otherPages].flatMap((page) => page.rows);
 }
 
@@ -112,10 +128,14 @@ async function fetchRestaurantPage(serviceKey: string, page: number) {
   return data;
 }
 
-function evenlySpacedPages(totalPages: number) {
+function getRestaurantPages(totalPages: number) {
+  if (totalPages <= MAX_RESTAURANT_FETCH_PAGES) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
   const pages = new Set<number>([1, totalPages]);
-  for (let index = 1; index < RESTAURANT_SAMPLE_PAGE_COUNT - 1; index += 1) {
-    pages.add(1 + Math.round(((totalPages - 1) * index) / (RESTAURANT_SAMPLE_PAGE_COUNT - 1)));
+  for (let index = 1; index < MAX_RESTAURANT_FETCH_PAGES - 1; index += 1) {
+    pages.add(1 + Math.round(((totalPages - 1) * index) / (MAX_RESTAURANT_FETCH_PAGES - 1)));
   }
   return [...pages].sort((a, b) => a - b);
 }
@@ -141,20 +161,51 @@ function selectRestaurantCandidates(rows: GangwonRestaurantRow[]) {
     byRegion.set(region, regionRows);
   }
 
-  const balanced: GangwonRestaurantRow[] = [];
-  const regions = [...byRegion.keys()].sort();
-  for (let index = 0; balanced.length < MAX_RESTAURANT_PLACES + 2; index += 1) {
-    let added = false;
-    for (const region of regions) {
-      const row = byRegion.get(region)?.[index];
-      if (!row) continue;
-      balanced.push(row);
-      added = true;
+  const selected: GangwonRestaurantRow[] = [];
+  const selectedKeys = new Set<string>();
+  for (const [region, quota] of Object.entries(regionQuotas)) {
+    const regionRows = byRegion.get(region) ?? [];
+    for (const row of regionRows.slice(0, quota)) {
+      const key = restaurantKey(row);
+      if (selectedKeys.has(key)) continue;
+      selected.push(row);
+      selectedKeys.add(key);
     }
-    if (!added) break;
   }
 
-  return balanced;
+  for (const row of usable) {
+    if (selected.length >= RESTAURANT_CANDIDATE_LIMIT) break;
+    const key = restaurantKey(row);
+    if (selectedKeys.has(key)) continue;
+    selected.push(row);
+    selectedKeys.add(key);
+  }
+
+  return selected;
+}
+
+async function mapWithConcurrency<TInput, TOutput>(
+  values: TInput[],
+  concurrency: number,
+  mapper: (value: TInput) => Promise<TOutput>,
+) {
+  const results: TOutput[] = new Array(values.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < values.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      try {
+        results[index] = await mapper(values[index]);
+      } catch {
+        results[index] = null as TOutput;
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, values.length) }, worker));
+  return results;
 }
 
 async function geocodeAddress(address: string, kakaoRestApiKey: string) {
@@ -207,6 +258,10 @@ function mapRestaurantRow(
 function extractRegion(address?: string) {
   const match = address?.match(/강원(?:특별자치도|도)?\s+([가-힣]+시|[가-힣]+군)/);
   return match?.[1]?.replace(/[시군]$/, "");
+}
+
+function restaurantKey(row: GangwonRestaurantRow) {
+  return `${row.업소명?.replace(/\s+/g, "")}:${row.도로명주소?.replace(/\s+/g, "")}`;
 }
 
 function stableId(value: string) {

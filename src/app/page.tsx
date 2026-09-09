@@ -394,6 +394,36 @@ export default function Home() {
     };
   }, [viewingPlace]);
 
+  useEffect(() => {
+    if (!viewingPlace) return;
+
+    const scrollY = window.scrollY;
+    const bodyStyle = document.body.style;
+    const htmlStyle = document.documentElement.style;
+    const previous = {
+      bodyOverflow: bodyStyle.overflow,
+      bodyPosition: bodyStyle.position,
+      bodyTop: bodyStyle.top,
+      bodyWidth: bodyStyle.width,
+      htmlOverflow: htmlStyle.overflow,
+    };
+
+    bodyStyle.overflow = "hidden";
+    bodyStyle.position = "fixed";
+    bodyStyle.top = `-${scrollY}px`;
+    bodyStyle.width = "100%";
+    htmlStyle.overflow = "hidden";
+
+    return () => {
+      bodyStyle.overflow = previous.bodyOverflow;
+      bodyStyle.position = previous.bodyPosition;
+      bodyStyle.top = previous.bodyTop;
+      bodyStyle.width = previous.bodyWidth;
+      htmlStyle.overflow = previous.htmlOverflow;
+      window.scrollTo(0, scrollY);
+    };
+  }, [viewingPlace]);
+
   const handleKakaoLogin = () => {
     router.push("/api/auth/kakao/start");
   };
@@ -1028,8 +1058,8 @@ export default function Home() {
       </main>
 
       {viewingPlace && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/20 p-4 backdrop-blur-sm">
-          <div className="glass-panel max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-[3rem] border-white/80 !bg-white/70 shadow-2xl">
+        <div className="fixed inset-0 z-[100] flex touch-none items-center justify-center overflow-hidden bg-slate-900/20 p-4 backdrop-blur-sm">
+          <div className="glass-panel max-h-[calc(100dvh-2rem)] w-full max-w-sm touch-pan-y overflow-y-auto overscroll-contain rounded-[3rem] border-white/80 !bg-white/70 shadow-2xl">
             <div className="relative flex h-44 items-center justify-center overflow-hidden border-b border-white/50 bg-white/40">
               <div className="absolute inset-0 opacity-20" style={{ backgroundColor: GW_GREEN }} />
               {viewingPlace.category === "food" ? <Utensils size={80} className="absolute text-amber-600 opacity-30" /> : viewingPlace.category === "stay" ? <BedDouble size={80} className="absolute text-purple-600 opacity-30" /> : <Leaf size={80} className="absolute opacity-30" style={{ color: GW_GREEN }} />}

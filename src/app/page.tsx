@@ -1028,8 +1028,8 @@ export default function Home() {
       </main>
 
       {viewingPlace && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-900/20 px-4 pb-8 backdrop-blur-sm">
-          <div className="glass-panel w-full max-w-sm overflow-hidden rounded-[3rem] border-white/80 !bg-white/70 shadow-2xl">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/20 p-4 backdrop-blur-sm">
+          <div className="glass-panel max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-[3rem] border-white/80 !bg-white/70 shadow-2xl">
             <div className="relative flex h-44 items-center justify-center overflow-hidden border-b border-white/50 bg-white/40">
               <div className="absolute inset-0 opacity-20" style={{ backgroundColor: GW_GREEN }} />
               {viewingPlace.category === "food" ? <Utensils size={80} className="absolute text-amber-600 opacity-30" /> : viewingPlace.category === "stay" ? <BedDouble size={80} className="absolute text-purple-600 opacity-30" /> : <Leaf size={80} className="absolute opacity-30" style={{ color: GW_GREEN }} />}
@@ -1059,7 +1059,6 @@ export default function Home() {
                 onClick={(event) => {
                   toggleMustGoSpot(event, viewingPlace.id);
                   setViewingPlace(null);
-                  if (!mustGoSpots.includes(viewingPlace.id)) setActiveTab("planner");
                 }}
                 className={`flex w-full items-center justify-center rounded-2xl py-4 text-[13px] font-black shadow-lg transition-all active:scale-95 ${mustGoSpots.includes(viewingPlace.id) ? "glass-button text-slate-500" : "text-white"}`}
                 style={!mustGoSpots.includes(viewingPlace.id) ? { backgroundColor: GW_BLUE } : {}}

@@ -633,7 +633,7 @@ export default function Home() {
   }
 
   return (
-    <div className={`relative mx-auto min-h-screen w-full overflow-x-hidden bg-slate-50/50 font-sans text-slate-800 ${activeTab === "profile" ? "max-w-6xl shadow-none" : "max-w-md shadow-2xl"}`}>
+    <div className={`relative min-h-screen w-full overflow-x-hidden bg-slate-50/50 font-sans text-slate-800 ${activeTab === "profile" ? "mx-auto max-w-6xl shadow-none" : "max-w-none"}`}>
       <style>{styles}</style>
       <div className="animate-blob pointer-events-none fixed left-[-15%] top-[-5%] h-80 w-80 rounded-full opacity-20 mix-blend-multiply blur-3xl" style={{ backgroundColor: GW_GREEN }} />
       <div className="animate-blob animation-delay-2000 pointer-events-none fixed right-[-10%] top-[40%] h-72 w-72 rounded-full opacity-15 mix-blend-multiply blur-3xl" style={{ backgroundColor: GW_BLUE }} />

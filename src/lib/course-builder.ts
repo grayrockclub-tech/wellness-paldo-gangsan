@@ -46,6 +46,7 @@ export function buildWellnessCourse<TPlace extends CoursePlace>({
   planMode,
   theme,
   travelMode,
+  startTime,
   weatherByPlaceId = {},
 }: {
   places: TPlace[];
@@ -53,6 +54,7 @@ export function buildWellnessCourse<TPlace extends CoursePlace>({
   planMode: CoursePlanMode;
   theme: CourseTheme;
   travelMode: CourseTravelMode;
+  startTime?: string;
   weatherByPlaceId?: Record<string, CourseWeatherSummary>;
 }) {
   const mustGoSet = new Set(mustGoIds);
@@ -60,7 +62,7 @@ export function buildWellnessCourse<TPlace extends CoursePlace>({
   const scoringContext = { mustGoSet, travelMode, weatherByPlaceId, theme };
 
   if (planMode === "selected-only") {
-    return buildSelectedOnlyCourse(mandatory, travelMode, scoringContext);
+    return buildSelectedOnlyCourse(mandatory, travelMode, scoringContext, startTime);
   }
 
   const selectedSpots = orderByNearestPath(
@@ -72,8 +74,7 @@ export function buildWellnessCourse<TPlace extends CoursePlace>({
   const selectedStay = selectSupportingPlace(places, mandatory, [...selectedSpots, selectedFood].filter(Boolean) as TPlace[], "stay", scoringContext);
 
   const timeline: WellnessCourseItem<TPlace>[] = [];
-  const currentTime = new Date();
-  currentTime.setHours(10, 0, 0);
+  const currentTime = createTimelineStart(startTime);
 
   addPlace(timeline, currentTime, selectedSpots[0], selectedSpots[0]?.category === "food" ? 90 : 120, makeReason(selectedSpots[0], { mustGoSet, anchor: selectedSpots[0], role: selectedSpots[0]?.category ?? "spot", order: 1, travelMode, weatherByPlaceId }));
 
@@ -85,15 +86,23 @@ export function buildWellnessCourse<TPlace extends CoursePlace>({
   return timeline;
 }
 
+function createTimelineStart(startTime?: string) {
+  const requested = startTime ? new Date(startTime) : undefined;
+  if (requested && Number.isFinite(requested.getTime())) return requested;
+  const fallback = new Date();
+  fallback.setHours(10, 0, 0, 0);
+  return fallback;
+}
+
 function buildSelectedOnlyCourse<TPlace extends CoursePlace>(
   mandatory: TPlace[],
   travelMode: CourseTravelMode,
   context: ScoringContext,
+  startTime?: string,
 ) {
   const orderedPlaces = orderByNearestPath(mandatory, mandatory, travelMode);
   const timeline: WellnessCourseItem<TPlace>[] = [];
-  const currentTime = new Date();
-  currentTime.setHours(10, 0, 0);
+  const currentTime = createTimelineStart(startTime);
 
   orderedPlaces.forEach((place, index) => {
     const previous = orderedPlaces[index - 1];

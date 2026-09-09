@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { buildWellnessCourse, type PlaceCourseItem as BuiltPlaceCourseItem, type WellnessCourseItem } from "@/lib/course-builder";
+import type { TransitOrigin, TransitRoute } from "@/lib/kakao-transit";
 import {
   BedDouble,
   Bus,
@@ -171,6 +172,12 @@ const routeThemes: { id: Exclude<PlanTheme, "auto">; label: string }[] = [
   { id: "temple", label: "템플스테이" },
 ];
 
+function currentLocalDateTime() {
+  const date = new Date();
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+  return date.toISOString().slice(0, 16);
+}
+
 function getPlaceSourceDescription(place: Pick<Place, "contentId" | "dataSource">) {
   if (place.dataSource === "gangwon-restaurant") return "강원 일반음식점 API";
   return place.contentId || place.dataSource === "tourapi" ? "한국관광공사 TourAPI" : "샘플 데이터";
@@ -283,6 +290,12 @@ export default function Home() {
   const [planMode, setPlanMode] = useState<PlanMode>("auto");
   const [routeTheme, setRouteTheme] = useState<Exclude<PlanTheme, "auto">>("forest");
   const [recommendationTheme, setRecommendationTheme] = useState<PlanTheme>("auto");
+  const [transitOrigin, setTransitOrigin] = useState<TransitOrigin | null>(null);
+  const [originQuery, setOriginQuery] = useState("");
+  const [departureTime, setDepartureTime] = useState(currentLocalDateTime);
+  const [isResolvingOrigin, setIsResolvingOrigin] = useState(false);
+  const [originTransit, setOriginTransit] = useState<TransitRoute | null>(null);
+  const [transitLegs, setTransitLegs] = useState<Record<number, TransitRoute>>({});
   const [isPlanning, setIsPlanning] = useState(false);
   const [generatedCourse, setGeneratedCourse] = useState<CourseItem[] | null>(null);
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
@@ -549,7 +562,61 @@ export default function Home() {
     });
   };
 
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      alert("이 기기에서는 현재 위치를 사용할 수 없습니다.");
+      return;
+    }
+    setIsResolvingOrigin(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setTransitOrigin({ name: "현재 위치", lat: position.coords.latitude, lng: position.coords.longitude });
+        setIsResolvingOrigin(false);
+      },
+      () => {
+        setIsResolvingOrigin(false);
+        alert("현재 위치를 가져오지 못했습니다. 위치 권한을 허용하거나 출발지를 직접 입력해주세요.");
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  };
+
+  const resolveOriginQuery = async () => {
+    if (!originQuery.trim()) return;
+    setIsResolvingOrigin(true);
+    try {
+      const response = await fetch(`/api/wellness/transit/geocode?query=${encodeURIComponent(originQuery.trim())}`);
+      const origin = await response.json() as TransitOrigin & { error?: string };
+      if (!response.ok || !Number.isFinite(origin.lat) || !Number.isFinite(origin.lng)) throw new Error(origin.error);
+      setTransitOrigin(origin);
+    } catch {
+      alert("출발지를 찾지 못했습니다. 주소나 장소 이름을 더 자세히 입력해주세요.");
+    } finally {
+      setIsResolvingOrigin(false);
+    }
+  };
+
+  const loadTransitRoutes = async (course: CourseItem[], origin: TransitOrigin) => {
+    const destinations = course.filter(isPlaceCourseItem);
+    const requests = destinations.map((destination, index) => {
+      const start = index === 0 ? origin : destinations[index - 1];
+      const params = new URLSearchParams({
+        startLat: String(start.lat), startLng: String(start.lng), startName: start.name,
+        endLat: String(destination.lat), endLng: String(destination.lng), endName: destination.name,
+      });
+      return fetch(`/api/wellness/transit?${params}`).then(async (response) => (await response.json()) as TransitRoute);
+    });
+    const routes = await Promise.allSettled(requests);
+    const resolved = routes.map((result) => result.status === "fulfilled" ? result.value : { status: "unavailable", message: "대중교통 정보를 불러오지 못했습니다." } satisfies TransitRoute);
+    setOriginTransit(resolved[0] ?? null);
+    setTransitLegs(Object.fromEntries(resolved.slice(1).map((route, index) => [index, route])));
+  };
+
   const generateCourse = async () => {
+    if (travelMode === "walk" && !transitOrigin) {
+      alert("대중교통 경로를 만들려면 현재 위치를 사용하거나 출발지를 직접 입력해주세요.");
+      return;
+    }
     setIsPlanning(true);
     const planningStartedAt = Date.now();
     const courseWeather = await loadCourseCandidateWeather({
@@ -563,7 +630,11 @@ export default function Home() {
     const remainingDelay = Math.max(0, 900 - (Date.now() - planningStartedAt));
 
     setTimeout(() => {
-      setGeneratedCourse(buildWellnessCourse({ places, mustGoIds: mustGoSpots, planMode, theme: planMode === "auto" ? routeTheme : recommendationTheme, travelMode, weatherByPlaceId: nextWeatherByPlaceId }));
+      const course = buildWellnessCourse({ places, mustGoIds: mustGoSpots, planMode, theme: planMode === "auto" ? routeTheme : recommendationTheme, travelMode, startTime: departureTime, weatherByPlaceId: nextWeatherByPlaceId });
+      setGeneratedCourse(course);
+      setOriginTransit(null);
+      setTransitLegs({});
+      if (travelMode === "walk" && transitOrigin) void loadTransitRoutes(course, transitOrigin);
       setIsPlanning(false);
       setActiveTab("map");
     }, remainingDelay);
@@ -814,6 +885,22 @@ export default function Home() {
                 </div>
               </section>
 
+              {travelMode === "walk" && (
+                <section className="glass-panel rounded-[2rem] p-6">
+                  <h3 className="mb-1 flex items-center text-sm font-black text-slate-800"><Bus size={16} className="mr-2" style={{ color: GW_GREEN }} /> 대중교통 출발 설정</h3>
+                  <p className="mb-4 text-[11px] font-medium leading-5 text-slate-500">출발 위치부터 실제 버스·지하철 경로를 조회합니다.</p>
+                  <button onClick={useCurrentLocation} disabled={isResolvingOrigin} className="mb-3 flex w-full items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-[11px] font-black text-emerald-700 disabled:opacity-60">
+                    <MapPin size={15} className="mr-2" /> {isResolvingOrigin ? "현재 위치 확인 중..." : transitOrigin?.name === "현재 위치" ? "현재 위치 사용 중" : "현재 위치 사용"}
+                  </button>
+                  <div className="flex gap-2">
+                    <input value={originQuery} onChange={(event) => setOriginQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void resolveOriginQuery(); }} placeholder="출발지 주소 또는 장소명" className="min-w-0 flex-1 rounded-2xl border border-white/70 bg-white/70 px-3 py-3 text-[11px] font-bold text-slate-700 outline-none placeholder:text-slate-400" />
+                    <button onClick={() => void resolveOriginQuery()} disabled={isResolvingOrigin || !originQuery.trim()} className="rounded-2xl px-4 text-[11px] font-black text-white disabled:bg-slate-300" style={{ backgroundColor: GW_BLUE }}>검색</button>
+                  </div>
+                  {transitOrigin && <p className="mt-3 rounded-xl bg-white/60 px-3 py-2 text-[10px] font-black text-slate-600"><MapPin size={12} className="mr-1 inline" style={{ color: GW_GREEN }} /> 출발: {transitOrigin.name}</p>}
+                  <label className="mt-4 block text-[11px] font-black text-slate-700">출발 시간<input type="datetime-local" value={departureTime} onChange={(event) => setDepartureTime(event.target.value)} className="mt-2 w-full rounded-2xl border border-white/70 bg-white/70 px-3 py-3 text-[11px] font-bold text-slate-700 outline-none" /></label>
+                </section>
+              )}
+
               <button
                 onClick={generateCourse}
                 disabled={isPlanning || (planMode !== "auto" && mustGoSpots.length === 0)}
@@ -884,6 +971,14 @@ export default function Home() {
                     selectedPlace={mobileSelectedMapPlace}
                     evidenceItems={generatedCourseEvidence}
                   />
+                )}
+
+                {travelMode === "walk" && transitOrigin && (
+                  <section className="glass-panel rounded-[2rem] p-4">
+                    <p className="text-[10px] font-black text-slate-400">출발지 → 첫 일정</p>
+                    <p className="mt-1 text-[12px] font-black text-slate-800">{transitOrigin.name}에서 대중교통으로 출발</p>
+                    <TransitRouteInfo route={originTransit} />
+                  </section>
                 )}
 
                 <MobileKakaoMapPanel
@@ -959,8 +1054,11 @@ export default function Home() {
                         <div className="absolute bottom-0 left-0 top-0 w-[2px] border-l-2 border-dashed opacity-30" style={{ borderColor: GW_BLUE }} />
                         <div className="flex w-max items-center space-x-2 rounded-xl border border-white/50 bg-white/50 px-4 py-2 text-[10px] font-bold text-slate-600 backdrop-blur-sm">
                           {item.travelType === "walk" ? <Bus size={12} style={{ color: GW_GREEN }} /> : <Car size={12} style={{ color: GW_BLUE }} />}
-                          <span>이동 약 {item.duration}분 예상</span>
+                          {item.travelType === "walk" && transitLegs[generatedCourse.slice(0, index).filter((courseItem) => courseItem.type === "travel").length]?.status === "ready" ? (
+                            <span>대중교통 {transitLegs[generatedCourse.slice(0, index).filter((courseItem) => courseItem.type === "travel").length]?.durationMinutes}분</span>
+                          ) : <span>이동 약 {item.duration}분 예상</span>}
                         </div>
+                        {item.travelType === "walk" && <TransitRouteInfo route={transitLegs[generatedCourse.slice(0, index).filter((courseItem) => courseItem.type === "travel").length]} compact />}
                       </div>
                     )
                   ))}
@@ -1229,6 +1327,21 @@ function RouteSummaryMetric({ label, value }: { label: string; value: string }) 
     <div className="rounded-2xl bg-white/70 px-3 py-3">
       <p className="text-[9px] font-black text-slate-400">{label}</p>
       <p className="mt-1 text-[13px] font-black text-slate-800">{value}</p>
+    </div>
+  );
+}
+
+function TransitRouteInfo({ route, compact = false }: { route: TransitRoute | null | undefined; compact?: boolean }) {
+  if (!route) return <p className="mt-2 text-[10px] font-bold text-slate-400">대중교통 경로를 조회하고 있습니다.</p>;
+  if (route.status !== "ready") return <p className="mt-2 text-[10px] font-bold text-slate-400">{route.message ?? "대중교통 정보를 확인할 수 없습니다."}</p>;
+
+  const modeLabel = route.mode === "BUS" ? "버스" : route.mode === "SUBWAY" ? "지하철" : route.mode === "BUS_AND_SUBWAY" ? "버스·지하철" : "대중교통";
+  return (
+    <div className={`mt-2 flex flex-wrap items-center gap-2 text-[10px] font-bold text-slate-600 ${compact ? "pl-1" : ""}`}>
+      <span>{modeLabel} {route.durationMinutes ?? "-"}분</span>
+      {route.transfers !== undefined && <span>환승 {route.transfers}회</span>}
+      {route.fare !== undefined && <span>{route.fare.toLocaleString()}원</span>}
+      {route.landingUrl && <a href={route.landingUrl} target="_blank" rel="noreferrer" className="rounded-lg bg-blue-50 px-2 py-1 text-blue-700">카카오맵 보기</a>}
     </div>
   );
 }

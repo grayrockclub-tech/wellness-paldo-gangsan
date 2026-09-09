@@ -745,18 +745,17 @@ export default function Home() {
                     직접선택
                   </button>
                 </div>
-              </section>
 
               {planMode === "auto" ? (
-                <section className="glass-panel rounded-[2rem] p-6">
+                <div className="mt-5 border-t border-white/60 pt-5">
                   <h3 className="mb-1 flex items-center text-sm font-black text-slate-800"><Leaf size={16} className="mr-2" style={{ color: GW_GREEN }} /> 원하는 테마</h3>
                   <p className="mb-4 text-[11px] font-medium text-slate-500">테마에 맞는 스팟·맛집·숙소를 앱이 조합합니다.</p>
                   <div className="flex flex-wrap gap-2">
                     {routeThemes.map((theme) => <button key={theme.id} onClick={() => setRouteTheme(theme.id)} className={`rounded-full border px-3 py-2 text-[11px] font-black transition-all ${routeTheme === theme.id ? "text-white shadow-sm" : "border-white/70 bg-white/45 text-slate-500"}`} style={routeTheme === theme.id ? { backgroundColor: GW_GREEN, borderColor: GW_GREEN } : {}}>{theme.label}</button>)}
                   </div>
-                </section>
+                </div>
               ) : (
-                <section className="glass-panel rounded-[2rem] p-6">
+                <div className="mt-5 border-t border-white/60 pt-5">
                   <h3 className="mb-1 flex items-center text-sm font-black text-slate-800"><CheckCircle2 size={16} className="mr-2" style={{ color: GW_GREEN }} /> 선택한 장소 {mustGoSpots.length}/5</h3>
                   <p className="mb-4 text-[11px] font-medium text-slate-500">탐색 탭에서 체크한 장소를 기준으로 계획을 만듭니다.</p>
                   {mustGoSpots.length > 0 ? <div className="flex flex-wrap gap-2">{mustGoSpots.map((id) => { const spot = places.find((place) => place.id === id); return spot ? <span key={id} onClick={(event) => toggleMustGoSpot(event, id)} className="glass-button flex cursor-pointer items-center rounded-full px-3 py-1.5 text-[10px] font-bold">{spot.name}<X size={12} className="ml-1 text-slate-400" /></span> : null; })}</div> : <p className="rounded-2xl bg-white/40 px-4 py-3 text-[11px] font-bold text-slate-500">탐색 탭에서 마음에 드는 장소를 먼저 체크해주세요.</p>}
@@ -765,8 +764,9 @@ export default function Home() {
                     <button onClick={() => setPlanMode("selected-with-recommendations")} className={`rounded-2xl border-2 px-3 py-3 text-[11px] font-black transition-all ${planMode === "selected-with-recommendations" ? "bg-white/70" : "border-transparent bg-white/35 text-slate-400"}`} style={planMode === "selected-with-recommendations" ? { borderColor: GW_BLUE, color: GW_BLUE } : {}}>앱 추천 포함</button>
                   </div>
                   {planMode === "selected-with-recommendations" && <div className="mt-5 border-t border-white/60 pt-4"><p className="mb-2 text-[11px] font-black text-slate-700">추천 테마 <span className="font-medium text-slate-400">(선택)</span></p><div className="flex flex-wrap gap-2"><button onClick={() => setRecommendationTheme("auto")} className={`rounded-full border px-3 py-2 text-[10px] font-black ${recommendationTheme === "auto" ? "text-white" : "border-white/70 bg-white/45 text-slate-500"}`} style={recommendationTheme === "auto" ? { backgroundColor: GW_BLUE, borderColor: GW_BLUE } : {}}>선택한 장소 기준</button>{routeThemes.map((theme) => <button key={theme.id} onClick={() => setRecommendationTheme(theme.id)} className={`rounded-full border px-3 py-2 text-[10px] font-black ${recommendationTheme === theme.id ? "text-white" : "border-white/70 bg-white/45 text-slate-500"}`} style={recommendationTheme === theme.id ? { backgroundColor: GW_BLUE, borderColor: GW_BLUE } : {}}>{theme.label}</button>)}</div></div>}
-                </section>
+                </div>
               )}
+              </section>
 
               <section className="glass-panel rounded-[2rem] p-6">
                 <h3 className="mb-4 flex items-center text-sm font-black text-slate-800">
@@ -811,19 +811,14 @@ export default function Home() {
                     웰니스 지도
                   </h2>
                   <p className="mt-1 text-[11px] font-bold leading-5 text-slate-500">
-                    탐색 중인 스팟·맛집·숙소 위치를 지도에서 확인할 수 있습니다.
+                    계획을 생성하면 선택한 장소의 이동 순서와 연결선을 확인할 수 있습니다.
                   </p>
                 </div>
-                <MobileKakaoMapPanel
-                  places={mobileMapPlaces}
-                  selectedPlace={mobileSelectedMapPlace}
-                  generatedCourse={null}
-                  weather={weatherByPlaceId[mobileSelectedMapPlace.id]}
-                  onSelectPlace={(place) => setSelectedMapPlaceId(place.id)}
-                />
-                <div className="glass-panel rounded-[2rem] p-5 text-center">
-                  <p className="text-[12px] font-bold leading-5 text-slate-600">
-                    원스톱 경로를 만들면 지도에 이동 순서와 연결선이 함께 표시됩니다.
+                <div className="glass-panel rounded-[2rem] p-8 text-center">
+                  <Map size={34} className="mx-auto mb-4 text-slate-300" />
+                  <p className="text-[14px] font-black text-slate-700">아직 생성된 경로가 없습니다.</p>
+                  <p className="mt-2 text-[12px] font-bold leading-5 text-slate-500">
+                    계획 탭에서 원스톱 루트를 생성하면 이곳에 경로가 표시됩니다.
                   </p>
                   <button onClick={() => setActiveTab("planner")} className="mt-4 rounded-full bg-white/80 px-6 py-3 text-xs font-black shadow-sm backdrop-blur-md" style={{ color: GW_GREEN }}>
                     플래너로 이동

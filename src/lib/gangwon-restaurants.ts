@@ -52,7 +52,7 @@ const wellnessFoodPattern =
 const healthyFoodPattern = /산채|곤드레|황태|순두부|두부|막국수|메밀|약선|보양|버섯|나물|생선|해물|샤브/;
 
 const nonTravelerRestaurantPattern =
-  /직원식당|구내식당|산업체|단체급식|급식소|클럽하우스|골프장|휴게소|푸드코트|웨딩|예식장|장례식장|병원|의료원|학교|대학교|군부대|생활관|연수원|관공서/;
+  /직원식당|구내식당|산업체|단체급식|급식소|클럽하우스|골프장|휴게소|푸드코트|웨딩|예식장|장례식장|병원|의료원|학교|대학교|군부대|생활관|연수원|관공서|마트|백화점|편의점|슈퍼|이마트|홈플러스|롯데마트/;
 
 export async function getGangwonRestaurantPlaces(): Promise<GangwonRestaurantPlace[]> {
   const kakaoRestApiKey = getKakaoRestApiKey();

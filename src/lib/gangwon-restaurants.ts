@@ -5,7 +5,9 @@ import { getKakaoRestApiKey } from "./kakao-auth";
 const RESTAURANT_DATASET_PATH = "/uddi:b5e09df5-615b-4d00-8692-826b13ab01c1";
 const RESTAURANT_CACHE_SECONDS = 60 * 60 * 24;
 const GEOCODE_CACHE_SECONDS = 60 * 60 * 24 * 30;
-const MAX_RESTAURANT_PLACES = 12;
+const MAX_RESTAURANT_PLACES = 10;
+const RESTAURANT_PAGE_SIZE = 1000;
+const RESTAURANT_SAMPLE_PAGE_COUNT = 5;
 
 type GangwonRestaurantRow = {
   업소명?: string;
@@ -16,6 +18,7 @@ type GangwonRestaurantRow = {
 
 type GangwonRestaurantResponse = {
   data?: GangwonRestaurantRow[];
+  totalCount?: number;
 };
 
 type KakaoAddressDocument = {
@@ -48,6 +51,9 @@ const wellnessFoodPattern =
 
 const healthyFoodPattern = /산채|곤드레|황태|순두부|두부|막국수|메밀|약선|보양|버섯|나물|생선|해물|샤브/;
 
+const nonTravelerRestaurantPattern =
+  /직원식당|구내식당|산업체|단체급식|급식소|클럽하우스|골프장|휴게소|푸드코트|웨딩|예식장|장례식장|병원|의료원|학교|대학교|군부대|생활관|연수원|관공서/;
+
 export async function getGangwonRestaurantPlaces(): Promise<GangwonRestaurantPlace[]> {
   const kakaoRestApiKey = getKakaoRestApiKey();
   if (!kakaoRestApiKey) {
@@ -71,15 +77,24 @@ export async function getGangwonRestaurantPlaces(): Promise<GangwonRestaurantPla
 }
 
 async function fetchGangwonRestaurantRows() {
-  const { data } = await getCached("gangwon-restaurants:v1:1000", RESTAURANT_CACHE_SECONDS, async () => {
-    const serviceKey = normalizeServiceKey(getGangwonRestaurantApiKey());
-    if (!serviceKey) {
-      throw new Error("GANGWON_RESTAURANT_API_KEY or TOUR_API_KEY is not configured");
-    }
+  const serviceKey = normalizeServiceKey(getGangwonRestaurantApiKey());
+  if (!serviceKey) {
+    throw new Error("GANGWON_RESTAURANT_API_KEY or TOUR_API_KEY is not configured");
+  }
+
+  const firstPage = await fetchRestaurantPage(serviceKey, 1);
+  const totalPages = Math.max(1, Math.ceil((firstPage.totalCount ?? firstPage.rows.length) / RESTAURANT_PAGE_SIZE));
+  const samplePages = evenlySpacedPages(totalPages).filter((page) => page !== 1);
+  const otherPages = await Promise.all(samplePages.map((page) => fetchRestaurantPage(serviceKey, page)));
+  return [firstPage, ...otherPages].flatMap((page) => page.rows);
+}
+
+async function fetchRestaurantPage(serviceKey: string, page: number) {
+  const { data } = await getCached(`gangwon-restaurants:v2:${page}`, RESTAURANT_CACHE_SECONDS, async () => {
     const url = new URL(`${GANGWON_RESTAURANT_API_BASE_URL}${RESTAURANT_DATASET_PATH}`);
     url.searchParams.set("serviceKey", serviceKey);
-    url.searchParams.set("page", "1");
-    url.searchParams.set("perPage", "1000");
+    url.searchParams.set("page", String(page));
+    url.searchParams.set("perPage", String(RESTAURANT_PAGE_SIZE));
     url.searchParams.set("returnType", "JSON");
 
     const response = await fetch(url, { headers: { Accept: "application/json" } });
@@ -88,18 +103,34 @@ async function fetchGangwonRestaurantRows() {
     }
 
     const payload = (await response.json()) as GangwonRestaurantResponse;
-    return Array.isArray(payload.data) ? payload.data : [];
+    return {
+      rows: Array.isArray(payload.data) ? payload.data : [],
+      totalCount: typeof payload.totalCount === "number" ? payload.totalCount : undefined,
+    };
   });
 
   return data;
+}
+
+function evenlySpacedPages(totalPages: number) {
+  const pages = new Set<number>([1, totalPages]);
+  for (let index = 1; index < RESTAURANT_SAMPLE_PAGE_COUNT - 1; index += 1) {
+    pages.add(1 + Math.round(((totalPages - 1) * index) / (RESTAURANT_SAMPLE_PAGE_COUNT - 1)));
+  }
+  return [...pages].sort((a, b) => a - b);
 }
 
 function selectRestaurantCandidates(rows: GangwonRestaurantRow[]) {
   const usable = rows.filter((row) => {
     const name = row.업소명?.trim();
     const address = row.도로명주소?.trim();
-    const text = `${name ?? ""} ${row.업종 ?? ""} ${row.업태 ?? ""}`;
-    return Boolean(name && address && /강원/.test(address) && wellnessFoodPattern.test(text));
+    return Boolean(
+      name &&
+        address &&
+        /강원/.test(address) &&
+        wellnessFoodPattern.test(name) &&
+        !nonTravelerRestaurantPattern.test(name),
+    );
   });
 
   const byRegion = new Map<string, GangwonRestaurantRow[]>();
@@ -112,7 +143,7 @@ function selectRestaurantCandidates(rows: GangwonRestaurantRow[]) {
 
   const balanced: GangwonRestaurantRow[] = [];
   const regions = [...byRegion.keys()].sort();
-  for (let index = 0; balanced.length < MAX_RESTAURANT_PLACES * 2; index += 1) {
+  for (let index = 0; balanced.length < MAX_RESTAURANT_PLACES + 2; index += 1) {
     let added = false;
     for (const region of regions) {
       const row = byRegion.get(region)?.[index];

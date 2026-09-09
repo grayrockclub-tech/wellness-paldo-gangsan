@@ -2,11 +2,11 @@
 
 import {
   BedDouble,
+  Bus,
   Car,
   CheckCircle2,
   Database,
   Filter,
-  Footprints,
   Leaf,
   Loader2,
   Map,
@@ -605,7 +605,7 @@ export default function DesktopPage() {
 
             <ControlGroup title="이동 수단">
               <div className="grid grid-cols-2 gap-2">
-                <ModeButton active={travelMode === "walk"} icon={<Footprints size={18} />} label="대중교통" onClick={() => setTravelMode("walk")} />
+                <ModeButton active={travelMode === "walk"} icon={<Bus size={18} />} label="대중교통" onClick={() => setTravelMode("walk")} />
                 <ModeButton active={travelMode === "drive"} icon={<Car size={18} />} label="자동차" onClick={() => setTravelMode("drive")} />
               </div>
             </ControlGroup>
@@ -1087,7 +1087,7 @@ function Timeline({
       {course.map((item, index) =>
         item.type === "travel" ? (
           <div key={`travel-${index}`} className="ml-5 flex items-center gap-2 rounded-lg border border-dashed border-[#cbd9ce] bg-[#f7faf6] px-3 py-2 text-xs font-bold text-[#526158]">
-            {item.travelType === "walk" ? <Footprints size={15} style={{ color: GW_GREEN }} /> : <Car size={15} style={{ color: GW_BLUE }} />}
+            {item.travelType === "walk" ? <Bus size={15} style={{ color: GW_GREEN }} /> : <Car size={15} style={{ color: GW_BLUE }} />}
             이동 약 {item.duration}분
           </div>
         ) : (

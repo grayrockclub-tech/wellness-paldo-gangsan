@@ -6,11 +6,11 @@ import { useRouter } from "next/navigation";
 import { buildWellnessCourse, type PlaceCourseItem as BuiltPlaceCourseItem, type WellnessCourseItem } from "@/lib/course-builder";
 import {
   BedDouble,
+  Bus,
   Car,
   CheckCircle2,
   Database,
   Filter,
-  Footprints,
   Leaf,
   Loader2,
   LogOut,
@@ -774,7 +774,7 @@ export default function Home() {
                 </h3>
                 <div className="grid grid-cols-2 gap-3">
                   <div onClick={() => setTravelMode("walk")} className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 p-4 transition-all ${travelMode === "walk" ? "bg-white/60 backdrop-blur-md" : "glass-button border-transparent text-slate-400"}`} style={travelMode === "walk" ? { borderColor: GW_GREEN, color: GW_GREEN } : {}}>
-                    <Footprints size={24} />
+                    <Bus size={24} />
                     <span className="text-[11px] font-black">대중교통</span>
                   </div>
                   <div onClick={() => setTravelMode("drive")} className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 p-4 transition-all ${travelMode === "drive" ? "bg-white/60 backdrop-blur-md" : "glass-button border-transparent text-slate-400"}`} style={travelMode === "drive" ? { borderColor: GW_BLUE, color: GW_BLUE } : {}}>
@@ -928,7 +928,7 @@ export default function Home() {
                       <div key={`travel-${index}`} className="relative py-1 pl-10">
                         <div className="absolute bottom-0 left-0 top-0 w-[2px] border-l-2 border-dashed opacity-30" style={{ borderColor: GW_BLUE }} />
                         <div className="flex w-max items-center space-x-2 rounded-xl border border-white/50 bg-white/50 px-4 py-2 text-[10px] font-bold text-slate-600 backdrop-blur-sm">
-                          {item.travelType === "walk" ? <Footprints size={12} style={{ color: GW_GREEN }} /> : <Car size={12} style={{ color: GW_BLUE }} />}
+                          {item.travelType === "walk" ? <Bus size={12} style={{ color: GW_GREEN }} /> : <Car size={12} style={{ color: GW_BLUE }} />}
                           <span>이동 약 {item.duration}분 예상</span>
                         </div>
                       </div>

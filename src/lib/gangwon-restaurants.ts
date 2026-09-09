@@ -1,5 +1,5 @@
 import { getCached } from "./cache";
-import { GANGWON_RESTAURANT_API_BASE_URL, requireEnv } from "./env";
+import { GANGWON_RESTAURANT_API_BASE_URL, getGangwonRestaurantApiKey } from "./env";
 import { getKakaoRestApiKey } from "./kakao-auth";
 
 const RESTAURANT_DATASET_PATH = "/uddi:b5e09df5-615b-4d00-8692-826b13ab01c1";
@@ -72,7 +72,10 @@ export async function getGangwonRestaurantPlaces(): Promise<GangwonRestaurantPla
 
 async function fetchGangwonRestaurantRows() {
   const { data } = await getCached("gangwon-restaurants:v1:1000", RESTAURANT_CACHE_SECONDS, async () => {
-    const serviceKey = normalizeServiceKey(requireEnv("GANGWON_RESTAURANT_API_KEY"));
+    const serviceKey = normalizeServiceKey(getGangwonRestaurantApiKey());
+    if (!serviceKey) {
+      throw new Error("GANGWON_RESTAURANT_API_KEY or TOUR_API_KEY is not configured");
+    }
     const url = new URL(`${GANGWON_RESTAURANT_API_BASE_URL}${RESTAURANT_DATASET_PATH}`);
     url.searchParams.set("serviceKey", serviceKey);
     url.searchParams.set("page", "1");

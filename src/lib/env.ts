@@ -25,7 +25,7 @@ export const WEATHER_API_BASE_URL = getOptionalEnv("WEATHER_API_BASE_URL", DEFAU
 export function getRuntimeEnvStatus(): RuntimeEnvStatus {
   return {
     tourApiKey: Boolean(process.env.TOUR_API_KEY),
-    gangwonRestaurantApiKey: Boolean(process.env.GANGWON_RESTAURANT_API_KEY),
+    gangwonRestaurantApiKey: Boolean(getGangwonRestaurantApiKey()),
     weatherApiKey: Boolean(process.env.WEATHER_API_KEY),
     kakaoMapKey: Boolean(process.env.NEXT_PUBLIC_KAKAO_MAP_KEY),
     kakaoRestApiKey: Boolean(process.env.KAKAO_REST_API_KEY),
@@ -43,6 +43,10 @@ export function requireEnv(name: "TOUR_API_KEY" | "GANGWON_RESTAURANT_API_KEY" |
   }
 
   return value;
+}
+
+export function getGangwonRestaurantApiKey() {
+  return process.env.GANGWON_RESTAURANT_API_KEY?.trim() || process.env.TOUR_API_KEY?.trim() || "";
 }
 
 function getOptionalEnv(

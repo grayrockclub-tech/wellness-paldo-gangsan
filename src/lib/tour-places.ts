@@ -1,4 +1,5 @@
 import { getCached } from "./cache";
+import { getGangwonRestaurantPlaces } from "./gangwon-restaurants";
 import { GANGWON_AREA_CODE, fetchTourApi } from "./tour-api";
 
 export type WellnessPlaceCategory = "spot" | "food" | "stay";
@@ -26,7 +27,8 @@ export type WellnessPlace = {
   image?: string;
   contentId?: string;
   contentTypeId?: string;
-  descriptionSource?: "tourapi-overview" | "generated";
+  dataSource?: "tourapi" | "gangwon-restaurant" | "sample";
+  descriptionSource?: "tourapi-overview" | "gangwon-restaurant" | "generated";
 };
 
 type TourItem = {
@@ -174,16 +176,25 @@ export async function getWellnessPlacesFromTourApi(): Promise<WellnessPlacesResu
   const warnings: string[] = [];
 
   try {
-    const [areaResults, keywordResults] = await Promise.all([
+    const [areaResults, keywordResults, restaurantResult] = await Promise.all([
       Promise.allSettled(areaListRequests.map(({ contentTypeId, rows }) => fetchAreaList(contentTypeId, rows))),
       Promise.allSettled(keywordRequests.map(({ keyword, rows }) => fetchKeywordList(keyword, rows))),
+      getGangwonRestaurantPlaces().then(
+        (places) => ({ places, warning: null }),
+        (error: unknown) => ({
+          places: [],
+          warning: error instanceof Error ? error.message : "Gangwon restaurant API request failed.",
+        }),
+      ),
     ]);
+    if (restaurantResult.warning) warnings.push(restaurantResult.warning);
     const areaItems = collectTourItems(areaResults, warnings, "area");
     const keywordItems = collectTourItems(keywordResults, warnings, "keyword");
     const items = dedupeTourItems([...areaItems.flat(), ...keywordItems.flat()]);
     const apiItemCount = items.length;
 
-    const places = await enrichPlacesWithDetailOverview(selectWellnessPlaces(items), warnings);
+    const tourPlaces = await enrichPlacesWithDetailOverview(selectWellnessPlaces(items), warnings);
+    const places = mergeRestaurantPlaces(tourPlaces, restaurantResult.places);
 
     if (places.length === 0) {
       warnings.push(
@@ -203,7 +214,7 @@ export async function getWellnessPlacesFromTourApi(): Promise<WellnessPlacesResu
     }
 
     return {
-      source: "tourapi",
+      source: restaurantResult.places.length > 0 ? "mixed" : "tourapi",
       generatedAt: new Date().toISOString(),
       places,
       warnings,
@@ -438,7 +449,24 @@ function mapTourItem(item: TourItem, category: WellnessPlaceCategory, fitScore: 
     contentId: item.contentid ? String(item.contentid) : undefined,
     contentTypeId: item.contenttypeid ? String(item.contenttypeid) : undefined,
     descriptionSource: "generated",
+    dataSource: "tourapi",
   };
+}
+
+function mergeRestaurantPlaces(tourPlaces: WellnessPlace[], restaurantPlaces: WellnessPlace[]) {
+  if (restaurantPlaces.length === 0) return tourPlaces;
+
+  const nonFoodPlaces = tourPlaces.filter((place) => place.category !== "food");
+  const tourFoodPlaces = tourPlaces.filter((place) => place.category === "food");
+  const seen = new Set<string>();
+  const foodPlaces = [...restaurantPlaces, ...tourFoodPlaces].filter((place) => {
+    const key = `${place.name.replace(/\s+/g, "")}:${place.addr.replace(/\s+/g, "")}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  return [...nonFoodPlaces, ...foodPlaces.slice(0, categoryTargets.food)];
 }
 
 function resolveCategory(item: TourItem): WellnessPlaceCategory {

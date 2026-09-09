@@ -52,6 +52,7 @@ type Place = {
   contentId?: string;
   contentTypeId?: string;
   image?: string;
+  dataSource?: "tourapi" | "gangwon-restaurant" | "sample";
 };
 
 type PlaceCourseItem = BuiltPlaceCourseItem<Place>;
@@ -164,8 +165,9 @@ const spotSubCategories: SubCategoryFilter[] = ["전체", "forest", "yoga", "med
 const foodSubCategories: SubCategoryFilter[] = ["전체", "healthy", "local"];
 const staySubCategories: SubCategoryFilter[] = ["전체", "resort", "wellness", "healing", "hotel"];
 
-function getPlaceSourceDescription(place: Pick<Place, "contentId">) {
-  return place.contentId ? "한국관광공사 TourAPI" : "샘플 데이터";
+function getPlaceSourceDescription(place: Pick<Place, "contentId" | "dataSource">) {
+  if (place.dataSource === "gangwon-restaurant") return "강원 일반음식점 API";
+  return place.contentId || place.dataSource === "tourapi" ? "한국관광공사 TourAPI" : "샘플 데이터";
 }
 
 function createWeatherFallback(): WeatherSummary {
@@ -1516,7 +1518,7 @@ function TourDataStatusBadge({ source }: { source: "loading" | "tourapi" | "mixe
     source === "tourapi"
       ? "관광공사 TourAPI 연동"
       : source === "mixed"
-        ? "TourAPI + 보강 데이터"
+        ? "공공 API + 보강 데이터"
         : source === "loading"
           ? "관광 데이터 불러오는 중"
           : "샘플 데이터 표시 중";
@@ -1534,8 +1536,8 @@ function TourDataStatusBadge({ source }: { source: "loading" | "tourapi" | "mixe
   );
 }
 
-function PlaceSourceBadge({ place, size = "sm" }: { place: Pick<Place, "contentId">; size?: "sm" | "md" }) {
-  const realData = Boolean(place.contentId);
+function PlaceSourceBadge({ place, size = "sm" }: { place: Pick<Place, "contentId" | "dataSource">; size?: "sm" | "md" }) {
+  const realData = Boolean(place.contentId || place.dataSource === "gangwon-restaurant");
   return (
     <span
       className={`shrink-0 whitespace-nowrap rounded-md border font-black ${

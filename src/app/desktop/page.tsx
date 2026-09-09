@@ -59,6 +59,7 @@ type Place = {
   contentId?: string;
   contentTypeId?: string;
   image?: string;
+  dataSource?: "tourapi" | "gangwon-restaurant" | "sample";
 };
 
 type PlaceCourseItem = BuiltPlaceCourseItem<Place>;
@@ -247,7 +248,7 @@ function buildCourseEvidence(course: CourseItem[], travelMode: TravelMode, weath
   const weatherItems = placeItems.map((place) => weatherByPlaceId[place.id]).filter(Boolean);
   const goodWeatherCount = weatherItems.filter((weather) => weather.activityLevel === "good").length;
   const cautionWeatherCount = weatherItems.filter((weather) => weather.activityLevel === "caution").length;
-  const tourApiCount = placeItems.filter((place) => place.contentId).length;
+  const publicApiCount = placeItems.filter((place) => place.contentId || place.dataSource === "gangwon-restaurant").length;
   const regionCount = new Set(placeItems.map((place) => place.region)).size;
 
   return [
@@ -259,7 +260,7 @@ function buildCourseEvidence(course: CourseItem[], travelMode: TravelMode, weath
       : goodWeatherCount > 0
         ? `야외 적합 예보 ${goodWeatherCount}곳을 우선 반영`
         : "기상 예보 확인값을 추천 점수에 반영",
-    `TourAPI 장소 ${tourApiCount}/${placeItems.length}곳 기반`,
+    `공공 API 장소 ${publicApiCount}/${placeItems.length}곳 기반`,
     regionCount === 1 ? `${placeItems[0]?.region ?? "강원"} 권역 중심 일정` : `${regionCount}개 권역을 이동 부담 기준으로 정렬`,
   ];
 }
@@ -424,7 +425,7 @@ export default function DesktopPage() {
                 모바일 화면
               </Link>
               <div className="rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 font-bold">
-                Data <span className="ml-2 text-[#087a36]">{tourDataSource === "tourapi" ? "TourAPI" : tourDataSource === "mixed" ? "TourAPI + Sample" : tourDataSource === "loading" ? "Loading" : "Sample"}</span>
+                Data <span className="ml-2 text-[#087a36]">{tourDataSource === "tourapi" ? "TourAPI" : tourDataSource === "mixed" ? "공공 API + 보강 데이터" : tourDataSource === "loading" ? "Loading" : "Sample"}</span>
               </div>
               <button
                 onClick={() => setIsPlannerOpen(true)}

@@ -47,6 +47,7 @@ export function buildWellnessCourse<TPlace extends CoursePlace>({
   theme,
   travelMode,
   startTime,
+  manualOrderIds,
   weatherByPlaceId = {},
 }: {
   places: TPlace[];
@@ -55,6 +56,7 @@ export function buildWellnessCourse<TPlace extends CoursePlace>({
   theme: CourseTheme;
   travelMode: CourseTravelMode;
   startTime?: string;
+  manualOrderIds?: string[];
   weatherByPlaceId?: Record<string, CourseWeatherSummary>;
 }) {
   const mustGoSet = new Set(mustGoIds);
@@ -62,7 +64,7 @@ export function buildWellnessCourse<TPlace extends CoursePlace>({
   const scoringContext = { mustGoSet, travelMode, weatherByPlaceId, theme };
 
   if (planMode === "selected-only") {
-    return buildSelectedOnlyCourse(mandatory, travelMode, scoringContext, startTime);
+    return buildSelectedOnlyCourse(mandatory, travelMode, scoringContext, startTime, manualOrderIds);
   }
 
   const selectedSpots = orderByNearestPath(
@@ -99,8 +101,12 @@ function buildSelectedOnlyCourse<TPlace extends CoursePlace>(
   travelMode: CourseTravelMode,
   context: ScoringContext,
   startTime?: string,
+  manualOrderIds?: string[],
 ) {
-  const orderedPlaces = orderByNearestPath(mandatory, mandatory, travelMode);
+  const orderIndex = new Map((manualOrderIds ?? []).map((id, index) => [id, index]));
+  const orderedPlaces = orderIndex.size > 0
+    ? [...mandatory].sort((a, b) => (orderIndex.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (orderIndex.get(b.id) ?? Number.MAX_SAFE_INTEGER))
+    : orderByNearestPath(mandatory, mandatory, travelMode);
   const timeline: WellnessCourseItem<TPlace>[] = [];
   const currentTime = createTimelineStart(startTime);
 

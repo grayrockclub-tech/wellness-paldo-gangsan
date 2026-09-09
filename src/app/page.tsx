@@ -10,6 +10,8 @@ import {
   Bus,
   Car,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Database,
   Filter,
   Leaf,
@@ -178,6 +180,10 @@ function currentLocalDateTime() {
   return date.toISOString().slice(0, 16);
 }
 
+function combineDepartureDateTime(date: string, time: string) {
+  return `${date}T${time}`;
+}
+
 function getPlaceSourceDescription(place: Pick<Place, "contentId" | "dataSource">) {
   if (place.dataSource === "gangwon-restaurant") return "강원 일반음식점 API";
   return place.contentId || place.dataSource === "tourapi" ? "한국관광공사 TourAPI" : "샘플 데이터";
@@ -292,7 +298,8 @@ export default function Home() {
   const [recommendationTheme, setRecommendationTheme] = useState<PlanTheme>("auto");
   const [transitOrigin, setTransitOrigin] = useState<TransitOrigin | null>(null);
   const [originQuery, setOriginQuery] = useState("");
-  const [departureTime, setDepartureTime] = useState(currentLocalDateTime);
+  const [departureDate, setDepartureDate] = useState(() => currentLocalDateTime().slice(0, 10));
+  const [departureClock, setDepartureClock] = useState(() => currentLocalDateTime().slice(11, 16));
   const [isResolvingOrigin, setIsResolvingOrigin] = useState(false);
   const [originTransit, setOriginTransit] = useState<TransitRoute | null>(null);
   const [transitLegs, setTransitLegs] = useState<Record<number, TransitRoute>>({});
@@ -612,6 +619,22 @@ export default function Home() {
     setTransitLegs(Object.fromEntries(resolved.slice(1).map((route, index) => [index, route])));
   };
 
+  const moveSelectedPlace = (placeId: string, direction: -1 | 1) => {
+    const currentIndex = mustGoSpots.indexOf(placeId);
+    const nextIndex = currentIndex + direction;
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= mustGoSpots.length) return;
+    const nextOrder = [...mustGoSpots];
+    [nextOrder[currentIndex], nextOrder[nextIndex]] = [nextOrder[nextIndex], nextOrder[currentIndex]];
+    setMustGoSpots(nextOrder);
+
+    if (planMode !== "selected-only" || !generatedCourse) return;
+    const course = buildWellnessCourse({ places, mustGoIds: nextOrder, planMode, theme: recommendationTheme, travelMode, startTime: combineDepartureDateTime(departureDate, departureClock), manualOrderIds: nextOrder, weatherByPlaceId });
+    setGeneratedCourse(course);
+    setOriginTransit(null);
+    setTransitLegs({});
+    if (travelMode === "walk" && transitOrigin) void loadTransitRoutes(course, transitOrigin);
+  };
+
   const generateCourse = async () => {
     if (travelMode === "walk" && !transitOrigin) {
       alert("대중교통 경로를 만들려면 현재 위치를 사용하거나 출발지를 직접 입력해주세요.");
@@ -630,7 +653,7 @@ export default function Home() {
     const remainingDelay = Math.max(0, 900 - (Date.now() - planningStartedAt));
 
     setTimeout(() => {
-      const course = buildWellnessCourse({ places, mustGoIds: mustGoSpots, planMode, theme: planMode === "auto" ? routeTheme : recommendationTheme, travelMode, startTime: departureTime, weatherByPlaceId: nextWeatherByPlaceId });
+      const course = buildWellnessCourse({ places, mustGoIds: mustGoSpots, planMode, theme: planMode === "auto" ? routeTheme : recommendationTheme, travelMode, startTime: combineDepartureDateTime(departureDate, departureClock), manualOrderIds: planMode === "selected-only" ? mustGoSpots : undefined, weatherByPlaceId: nextWeatherByPlaceId });
       setGeneratedCourse(course);
       setOriginTransit(null);
       setTransitLegs({});
@@ -897,7 +920,7 @@ export default function Home() {
                     <button onClick={() => void resolveOriginQuery()} disabled={isResolvingOrigin || !originQuery.trim()} className="rounded-2xl px-4 text-[11px] font-black text-white disabled:bg-slate-300" style={{ backgroundColor: GW_BLUE }}>검색</button>
                   </div>
                   {transitOrigin && <p className="mt-3 rounded-xl bg-white/60 px-3 py-2 text-[10px] font-black text-slate-600"><MapPin size={12} className="mr-1 inline" style={{ color: GW_GREEN }} /> 출발: {transitOrigin.name}</p>}
-                  <label className="mt-4 block text-[11px] font-black text-slate-700">출발 시간<input type="datetime-local" value={departureTime} onChange={(event) => setDepartureTime(event.target.value)} className="mt-2 w-full rounded-2xl border border-white/70 bg-white/70 px-3 py-3 text-[11px] font-bold text-slate-700 outline-none" /></label>
+                  <div className="mt-4 grid grid-cols-2 gap-3"><label className="block text-[11px] font-black text-slate-700">출발 날짜<input type="date" value={departureDate} onChange={(event) => setDepartureDate(event.target.value)} className="mt-2 w-full rounded-2xl border border-white/70 bg-white/70 px-3 py-3 text-[11px] font-bold text-slate-700 outline-none" /></label><label className="block text-[11px] font-black text-slate-700">출발 시간<input type="time" value={departureClock} onChange={(event) => setDepartureClock(event.target.value)} className="mt-2 w-full rounded-2xl border border-white/70 bg-white/70 px-3 py-3 text-[11px] font-bold text-slate-700 outline-none" /></label></div>
                 </section>
               )}
 
@@ -1021,6 +1044,12 @@ export default function Home() {
                                 <WeatherMiniBadge weather={weatherByPlaceId[item.id]} />
                               </div>
                             </div>
+                            {planMode === "selected-only" && mustGoSpots.includes(item.id) && (
+                              <span className="flex shrink-0 flex-col gap-1">
+                                <button type="button" onClick={(event) => { event.stopPropagation(); moveSelectedPlace(item.id, -1); }} disabled={mustGoSpots.indexOf(item.id) === 0} className="rounded-lg border border-white/80 bg-white/70 p-1 text-slate-500 disabled:opacity-30"><ChevronUp size={13} /></button>
+                                <button type="button" onClick={(event) => { event.stopPropagation(); moveSelectedPlace(item.id, 1); }} disabled={mustGoSpots.indexOf(item.id) === mustGoSpots.length - 1} className="rounded-lg border border-white/80 bg-white/70 p-1 text-slate-500 disabled:opacity-30"><ChevronDown size={13} /></button>
+                              </span>
+                            )}
                             {travelMode === "drive" && (
                               <span onClick={(event) => { event.stopPropagation(); handleKakaoNavi(item.name); }} className="flex shrink-0 items-center rounded-lg px-3 py-1.5 text-[9px] font-bold text-white shadow-sm active:scale-95" style={{ backgroundColor: GW_BLUE }}>
                                 <Navigation size={10} className="mr-1" /> 길안내

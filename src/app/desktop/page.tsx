@@ -5,6 +5,8 @@ import {
   Bus,
   Car,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Database,
   Filter,
   Leaf,
@@ -33,6 +35,10 @@ function currentLocalDateTime() {
   const date = new Date();
   date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
   return date.toISOString().slice(0, 16);
+}
+
+function combineDepartureDateTime(date: string, time: string) {
+  return `${date}T${time}`;
 }
 
 type PlaceCategory = "spot" | "food" | "stay";
@@ -278,7 +284,8 @@ export default function DesktopPage() {
   const [recommendationTheme, setRecommendationTheme] = useState<PlanTheme>("auto");
   const [transitOrigin, setTransitOrigin] = useState<TransitOrigin | null>(null);
   const [originQuery, setOriginQuery] = useState("");
-  const [departureTime, setDepartureTime] = useState(currentLocalDateTime);
+  const [departureDate, setDepartureDate] = useState(() => currentLocalDateTime().slice(0, 10));
+  const [departureClock, setDepartureClock] = useState(() => currentLocalDateTime().slice(11, 16));
   const [isResolvingOrigin, setIsResolvingOrigin] = useState(false);
   const [transitLegs, setTransitLegs] = useState<Record<number, TransitRoute>>({});
   const [isPlanning, setIsPlanning] = useState(false);
@@ -415,6 +422,20 @@ export default function DesktopPage() {
     setTransitLegs(Object.fromEntries(results.map((result, index) => [index, result.status === "fulfilled" ? result.value : { status: "unavailable", message: "대중교통 정보를 불러오지 못했습니다." } satisfies TransitRoute])));
   };
 
+  const moveSelectedPlace = (placeId: string, direction: -1 | 1) => {
+    const currentIndex = mustGoSpots.indexOf(placeId);
+    const nextIndex = currentIndex + direction;
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= mustGoSpots.length) return;
+    const nextOrder = [...mustGoSpots];
+    [nextOrder[currentIndex], nextOrder[nextIndex]] = [nextOrder[nextIndex], nextOrder[currentIndex]];
+    setMustGoSpots(nextOrder);
+    if (planMode !== "selected-only" || !generatedCourse) return;
+    const course = buildCourse({ places, mustGoIds: nextOrder, planMode, theme: recommendationTheme, travelMode, startTime: combineDepartureDateTime(departureDate, departureClock), manualOrderIds: nextOrder, weatherByPlaceId });
+    setGeneratedCourse(course);
+    setTransitLegs({});
+    if (travelMode === "walk" && transitOrigin) void loadTransitRoutes(course);
+  };
+
   const generateCourse = async () => {
     if (travelMode === "walk" && !transitOrigin) {
       alert("대중교통 경로를 만들려면 현재 위치를 사용하거나 출발지를 직접 입력해주세요.");
@@ -440,7 +461,8 @@ export default function DesktopPage() {
         planMode,
         theme: planMode === "auto" ? routeTheme : recommendationTheme,
         travelMode,
-        startTime: departureTime,
+        startTime: combineDepartureDateTime(departureDate, departureClock),
+        manualOrderIds: planMode === "selected-only" ? mustGoSpots : undefined,
         weatherByPlaceId: nextWeatherByPlaceId,
       });
       setGeneratedCourse(timeline);
@@ -672,7 +694,7 @@ export default function DesktopPage() {
                 <button onClick={useCurrentLocation} disabled={isResolvingOrigin} className="mb-2 flex w-full items-center justify-center gap-2 rounded-lg border border-[#bde7c8] bg-[#f1fbf4] px-3 py-3 text-xs font-black text-[#087a36] disabled:opacity-60"><MapPin size={15} />{isResolvingOrigin ? "현재 위치 확인 중" : transitOrigin?.name === "현재 위치" ? "현재 위치 사용 중" : "현재 위치 사용"}</button>
                 <div className="flex gap-2"><input value={originQuery} onChange={(event) => setOriginQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void resolveOriginQuery(); }} placeholder="출발지 주소 또는 장소명" className="min-w-0 flex-1 rounded-lg border border-[#dce6dc] px-3 py-3 text-xs font-bold" /><button onClick={() => void resolveOriginQuery()} disabled={isResolvingOrigin || !originQuery.trim()} className="rounded-lg px-3 text-xs font-black text-white disabled:bg-slate-300" style={{ backgroundColor: GW_BLUE }}>검색</button></div>
                 {transitOrigin && <p className="mt-2 text-xs font-black text-[#526158]">출발: {transitOrigin.name}</p>}
-                <label className="mt-3 block text-xs font-black text-[#526158]">출발 시간<input type="datetime-local" value={departureTime} onChange={(event) => setDepartureTime(event.target.value)} className="mt-2 w-full rounded-lg border border-[#dce6dc] px-3 py-3 text-xs font-bold" /></label>
+                <div className="mt-3 grid grid-cols-2 gap-2"><label className="block text-xs font-black text-[#526158]">출발 날짜<input type="date" value={departureDate} onChange={(event) => setDepartureDate(event.target.value)} className="mt-2 w-full rounded-lg border border-[#dce6dc] px-3 py-3 text-xs font-bold" /></label><label className="block text-xs font-black text-[#526158]">출발 시간<input type="time" value={departureClock} onChange={(event) => setDepartureClock(event.target.value)} className="mt-2 w-full rounded-lg border border-[#dce6dc] px-3 py-3 text-xs font-bold" /></label></div>
               </ControlGroup>
             )}
 
@@ -704,7 +726,7 @@ export default function DesktopPage() {
               {generatedCourse ? (
                 <div className="space-y-4">
                   <CourseEvidencePanel items={generatedCourseEvidence} />
-                  <Timeline course={generatedCourse} travelMode={travelMode} weatherByPlaceId={weatherByPlaceId} transitLegs={transitLegs} />
+                  <Timeline course={generatedCourse} travelMode={travelMode} weatherByPlaceId={weatherByPlaceId} transitLegs={transitLegs} planMode={planMode} mustGoSpots={mustGoSpots} onMoveSelectedPlace={moveSelectedPlace} />
                 </div>
               ) : (
                 <div className="flex min-h-[260px] flex-col items-center justify-center rounded-lg bg-[#f4f7f3] px-6 text-center">
@@ -1144,11 +1166,17 @@ function Timeline({
   travelMode,
   weatherByPlaceId,
   transitLegs,
+  planMode,
+  mustGoSpots,
+  onMoveSelectedPlace,
 }: {
   course: CourseItem[];
   travelMode: TravelMode;
   weatherByPlaceId: Record<string, WeatherSummary>;
   transitLegs: Record<number, TransitRoute>;
+  planMode: PlanMode;
+  mustGoSpots: string[];
+  onMoveSelectedPlace: (placeId: string, direction: -1 | 1) => void;
 }) {
   return (
     <div className="space-y-4">
@@ -1164,6 +1192,12 @@ function Timeline({
               <span className="rounded-md bg-white px-2 py-1 text-[11px] font-black" style={{ color: GW_BLUE }}>
                 {item.timeRange}
               </span>
+              {planMode === "selected-only" && mustGoSpots.includes(item.id) && (
+                <span className="flex items-center gap-1">
+                  <button onClick={() => onMoveSelectedPlace(item.id, -1)} disabled={mustGoSpots.indexOf(item.id) === 0} className="rounded border border-[#dce6dc] p-1 text-[#526158] disabled:opacity-30" title="위로 이동"><ChevronUp size={13} /></button>
+                  <button onClick={() => onMoveSelectedPlace(item.id, 1)} disabled={mustGoSpots.indexOf(item.id) === mustGoSpots.length - 1} className="rounded border border-[#dce6dc] p-1 text-[#526158] disabled:opacity-30" title="아래로 이동"><ChevronDown size={13} /></button>
+                </span>
+              )}
               {travelMode === "drive" && (
                 <button className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-black text-white" style={{ backgroundColor: GW_BLUE }}>
                   <Navigation size={12} />
@@ -1277,6 +1311,7 @@ function buildCourse({
   theme,
   travelMode,
   startTime,
+  manualOrderIds,
   weatherByPlaceId,
 }: {
   places: Place[];
@@ -1285,9 +1320,10 @@ function buildCourse({
   theme: PlanTheme;
   travelMode: TravelMode;
   startTime?: string;
+  manualOrderIds?: string[];
   weatherByPlaceId: Record<string, WeatherSummary>;
 }) {
-  return buildWellnessCourse({ places, mustGoIds, planMode, theme, travelMode, startTime, weatherByPlaceId });
+  return buildWellnessCourse({ places, mustGoIds, planMode, theme, travelMode, startTime, manualOrderIds, weatherByPlaceId });
 }
 
 function isPlaceCourseItem(item: CourseItem): item is PlaceCourseItem {

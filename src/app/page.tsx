@@ -1100,7 +1100,7 @@ export default function Home() {
 
         {activeTab === "profile" && (
           <div className="mx-auto space-y-6 p-6 lg:max-w-6xl lg:p-10">
-            <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start">
+            <div className="grid min-w-0 gap-6 lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start">
               <section className="space-y-4">
                 <div className="glass-panel flex items-center space-x-5 rounded-[2.5rem] p-6 lg:flex-col lg:items-start lg:space-x-0 lg:space-y-6 lg:p-8">
                   <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl text-white shadow-inner lg:h-20 lg:w-20" style={{ backgroundImage: `linear-gradient(to bottom right, ${GW_GREEN}, ${GW_BLUE})` }}>
@@ -1146,7 +1146,7 @@ export default function Home() {
                 </div>
               </section>
 
-              <section className="glass-panel rounded-[2rem] p-5 lg:min-h-[360px] lg:p-8">
+              <section className="glass-panel min-w-0 rounded-[2rem] p-5 lg:min-h-[360px] lg:p-8">
                 <div className="mb-5 flex items-end justify-between gap-4">
                   <div>
                     <p className="mb-2 text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: GW_GREEN }}>
@@ -1164,9 +1164,9 @@ export default function Home() {
                           루트 보기 &rarr;
                         </button>
                       </div>
-                      <div className="no-scrollbar flex space-x-2 overflow-x-auto pb-1">
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                         {plan.course.filter(isPlaceCourseItem).map((place) => (
-                          <div key={`${plan.id}-${place.id}`} className="min-w-[85px] shrink-0 rounded-xl border border-white/80 bg-white/60 px-3 py-2.5 text-center shadow-sm">
+                          <div key={`${plan.id}-${place.id}`} className="min-w-0 rounded-xl border border-white/80 bg-white/60 px-3 py-2.5 text-center shadow-sm">
                             <span className="mb-0.5 block text-[8px] font-bold text-emerald-600">{place.category === "food" ? "맛집" : place.category === "stay" ? "숙소" : "스팟"}</span>
                             <span className="block truncate text-[10px] font-bold text-slate-700">{place.name}</span>
                           </div>

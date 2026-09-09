@@ -42,8 +42,8 @@ type SubCategoryFilter =
   | "healing"
   | "hotel";
 type TravelMode = "walk" | "drive";
-type PlanIntensity = "relaxed" | "dense";
-type PlanMode = "auto" | "semi-auto";
+type PlanMode = "auto" | "selected-only" | "selected-with-recommendations";
+type PlanTheme = "food" | "forest" | "mindfulness" | "spa" | "temple" | "auto";
 
 type Place = {
   id: string;
@@ -155,6 +155,13 @@ const subCategoryMap: Record<PlaceCategory, SubCategoryFilter[]> = {
   food: ["전체", "healthy", "local"],
   stay: ["전체", "resort", "wellness", "healing", "hotel"],
 };
+const routeThemes: { id: Exclude<PlanTheme, "auto">; label: string }[] = [
+  { id: "food", label: "맛집 탐방" },
+  { id: "forest", label: "숲속 트레킹" },
+  { id: "mindfulness", label: "명상·요가" },
+  { id: "spa", label: "온천·사우나" },
+  { id: "temple", label: "템플스테이" },
+];
 
 function createWeatherFallback(): WeatherSummary {
   return {
@@ -172,16 +179,14 @@ async function loadCourseCandidateWeather({
   places,
   mustGoIds,
   knownWeather,
-  includeFoodAndStay,
-  planIntensity,
+  planMode,
 }: {
   places: Place[];
   mustGoIds: string[];
   knownWeather: Record<string, WeatherSummary>;
-  includeFoodAndStay: boolean;
-  planIntensity: PlanIntensity;
+  planMode: PlanMode;
 }) {
-  const candidates = getCourseWeatherCandidates({ places, mustGoIds, includeFoodAndStay, planIntensity })
+  const candidates = getCourseWeatherCandidates({ places, mustGoIds, planMode })
     .filter((place) => !knownWeather[place.id])
     .slice(0, 10);
   if (candidates.length === 0) return {};
@@ -206,31 +211,19 @@ async function loadCourseCandidateWeather({
 function getCourseWeatherCandidates({
   places,
   mustGoIds,
-  includeFoodAndStay,
-  planIntensity,
+  planMode,
 }: {
   places: Place[];
   mustGoIds: string[];
-  includeFoodAndStay: boolean;
-  planIntensity: PlanIntensity;
+  planMode: PlanMode;
 }) {
   const mustGoSet = new Set(mustGoIds);
   const requiredPlaces = places.filter((place) => mustGoSet.has(place.id));
-  const spotLimit = planIntensity === "dense" ? 7 : 5;
-  const scoredSpots = places
-    .filter((place) => place.category === "spot")
+  if (planMode === "selected-only") return requiredPlaces;
+  const recommendations = places
     .sort((a, b) => b.score - a.score)
-    .slice(0, spotLimit);
-  const supportingPlaces = includeFoodAndStay
-    ? (["food", "stay"] as const).flatMap((category) =>
-        places
-          .filter((place) => place.category === category)
-          .sort((a, b) => b.score - a.score)
-          .slice(0, 3),
-      )
-    : [];
-
-  return uniquePlaces([...requiredPlaces, ...scoredSpots, ...supportingPlaces]);
+    .slice(0, 10);
+  return uniquePlaces([...requiredPlaces, ...recommendations]);
 }
 
 function uniquePlaces<TPlace extends Pick<Place, "id">>(places: TPlace[]) {
@@ -253,7 +246,7 @@ function buildCourseEvidence(course: CourseItem[], travelMode: TravelMode, weath
 
   return [
     travelMode === "walk"
-      ? `뚜벅이 기준 이동 ${travelMinutes}분 이내로 동선을 압축`
+      ? `대중교통 기준 이동 ${travelMinutes}분 이내로 동선을 압축`
       : `자동차 기준 이동 ${travelMinutes}분 규모로 권역 연결`,
     cautionWeatherCount > 0
       ? `기상 부담 ${cautionWeatherCount}곳을 고려해 실내·회복형 장소 보강`
@@ -273,9 +266,9 @@ export default function DesktopPage() {
   const [places, setPlaces] = useState<Place[]>(PLACES);
   const [tourDataSource, setTourDataSource] = useState<"loading" | "tourapi" | "mixed" | "fallback">("loading");
   const [travelMode, setTravelMode] = useState<TravelMode>("walk");
-  const [planIntensity, setPlanIntensity] = useState<PlanIntensity>("relaxed");
   const [planMode, setPlanMode] = useState<PlanMode>("auto");
-  const [includeFoodAndStay, setIncludeFoodAndStay] = useState(true);
+  const [routeTheme, setRouteTheme] = useState<Exclude<PlanTheme, "auto">>("forest");
+  const [recommendationTheme, setRecommendationTheme] = useState<PlanTheme>("auto");
   const [isPlanning, setIsPlanning] = useState(false);
   const [generatedCourse, setGeneratedCourse] = useState<CourseItem[] | null>(null);
   const [weatherByPlaceId, setWeatherByPlaceId] = useState<Record<string, WeatherSummary>>({});
@@ -365,8 +358,8 @@ export default function DesktopPage() {
   const toggleMustGoSpot = (id: string) => {
     setMustGoSpots((prev) => {
       if (prev.includes(id)) return prev.filter((placeId) => placeId !== id);
-      if (prev.length >= 3) {
-        alert("꼭 가고 싶은 장소는 최대 3개까지 선택 가능합니다.");
+      if (prev.length >= 5) {
+        alert("꼭 가고 싶은 장소는 최대 5개까지 선택 가능합니다.");
         return prev;
       }
       return [...prev, id];
@@ -381,8 +374,7 @@ export default function DesktopPage() {
       places,
       mustGoIds: mustGoSpots,
       knownWeather: weatherByPlaceId,
-      includeFoodAndStay,
-      planIntensity,
+      planMode,
     });
     const nextWeatherByPlaceId = { ...weatherByPlaceId, ...courseWeather };
     setWeatherByPlaceId(nextWeatherByPlaceId);
@@ -392,9 +384,8 @@ export default function DesktopPage() {
       const timeline = buildCourse({
         places,
         mustGoIds: mustGoSpots,
-        planIntensity,
         planMode,
-        includeFoodAndStay,
+        theme: planMode === "auto" ? routeTheme : recommendationTheme,
         travelMode,
         weatherByPlaceId: nextWeatherByPlaceId,
       });
@@ -433,7 +424,7 @@ export default function DesktopPage() {
                 style={{ backgroundColor: GW_BLUE }}
               >
                 <Menu size={18} />
-                루트 설계
+                루트 계획
                 {mustGoSpots.length > 0 && <span className="rounded-md bg-white/20 px-2 py-0.5 text-xs">{mustGoSpots.length}개 선택</span>}
               </button>
               <Link
@@ -558,7 +549,7 @@ export default function DesktopPage() {
 
         {isPlannerOpen && (
           <button
-            aria-label="루트 설계 패널 닫기"
+            aria-label="루트 계획 패널 닫기"
             className="fixed inset-0 z-40 bg-black/20"
             onClick={() => setIsPlannerOpen(false)}
           />
@@ -574,7 +565,7 @@ export default function DesktopPage() {
             <div className="flex items-center justify-between">
               <h3 className="flex items-center gap-2 text-lg font-black" style={{ color: GW_BLUE }}>
                 <SlidersHorizontal size={18} />
-                원스톱 루트 설계
+                원스톱 루트 계획
               </h3>
               <div className="flex items-center gap-2">
                 <span className="rounded-lg bg-[#eaf2ff] px-3 py-1 text-xs font-black" style={{ color: GW_BLUE }}>
@@ -586,53 +577,44 @@ export default function DesktopPage() {
               </div>
             </div>
 
-            <ControlGroup title="설계 방식">
+            <ControlGroup title="루트 구성">
               <SegmentedControl
                 items={[
-                  { id: "auto", label: "전체 자동" },
-                  { id: "semi-auto", label: "반자동" },
+                  { id: "auto", label: "자동선택" },
+                  { id: "selected-only", label: "직접선택" },
                 ]}
                 value={planMode}
                 onChange={(value) => setPlanMode(value as PlanMode)}
               />
             </ControlGroup>
 
+            {planMode === "auto" ? (
+              <ControlGroup title="원하는 테마">
+                <p className="mb-3 text-xs font-bold text-[#66756c]">테마에 맞는 스팟·맛집·숙소를 앱이 조합합니다.</p>
+                <div className="flex flex-wrap gap-2">
+                  {routeThemes.map((theme) => <ModeButton key={theme.id} active={routeTheme === theme.id} label={theme.label} onClick={() => setRouteTheme(theme.id)} icon={<Leaf size={15} />} />)}
+                </div>
+              </ControlGroup>
+            ) : (
+              <ControlGroup title={`선택한 장소 ${mustGoSpots.length}/5`}>
+                <p className="mb-3 text-xs font-bold text-[#66756c]">탐색 화면에서 체크한 장소를 기준으로 계획을 만듭니다.</p>
+                <SegmentedControl items={[{ id: "selected-only", label: "선택한 장소만" }, { id: "selected-with-recommendations", label: "앱 추천 포함" }]} value={planMode} onChange={(value) => setPlanMode(value as PlanMode)} />
+                {planMode === "selected-with-recommendations" && <div className="mt-4"><p className="mb-2 text-xs font-black">추천 테마 <span className="text-[#75837b]">(선택)</span></p><div className="flex flex-wrap gap-2"><ModeButton active={recommendationTheme === "auto"} label="선택한 장소 기준" onClick={() => setRecommendationTheme("auto")} icon={<Star size={15} />} />{routeThemes.map((theme) => <ModeButton key={theme.id} active={recommendationTheme === theme.id} label={theme.label} onClick={() => setRecommendationTheme(theme.id)} icon={<Leaf size={15} />} />)}</div></div>}
+              </ControlGroup>
+            )}
+
             <ControlGroup title="이동 수단">
               <div className="grid grid-cols-2 gap-2">
-                <ModeButton active={travelMode === "walk"} icon={<Footprints size={18} />} label="뚜벅이" onClick={() => setTravelMode("walk")} />
+                <ModeButton active={travelMode === "walk"} icon={<Footprints size={18} />} label="대중교통" onClick={() => setTravelMode("walk")} />
                 <ModeButton active={travelMode === "drive"} icon={<Car size={18} />} label="자동차" onClick={() => setTravelMode("drive")} />
               </div>
             </ControlGroup>
 
-            <ControlGroup title="여행 강도">
-              <SegmentedControl
-                items={[
-                  { id: "relaxed", label: "여유롭게" },
-                  { id: "dense", label: "빽빽하게" },
-                ]}
-                value={planIntensity}
-                onChange={(value) => setPlanIntensity(value as PlanIntensity)}
-              />
-            </ControlGroup>
-
-            <label className="mt-5 flex items-center justify-between rounded-lg border border-[#dce6dc] bg-[#f7faf6] px-4 py-3">
-              <span>
-                <span className="block text-sm font-black">맛집 및 숙소 자동 포함</span>
-                <span className="mt-1 block text-xs font-bold text-[#66756c]">건강 맛집과 힐링 숙소를 함께 배치</span>
-              </span>
-              <input
-                type="checkbox"
-                checked={includeFoodAndStay}
-                onChange={(event) => setIncludeFoodAndStay(event.target.checked)}
-                className="h-5 w-5 accent-[#0DB14B]"
-              />
-            </label>
-
             <button
               onClick={generateCourse}
-              disabled={isPlanning || (planMode === "semi-auto" && mustGoSpots.length === 0)}
+              disabled={isPlanning || (planMode !== "auto" && mustGoSpots.length === 0)}
               className="mt-5 flex w-full items-center justify-center rounded-lg px-4 py-4 text-sm font-black text-white shadow-sm disabled:bg-slate-300"
-              style={!isPlanning && !(planMode === "semi-auto" && mustGoSpots.length === 0) ? { backgroundColor: GW_BLUE } : {}}
+              style={!isPlanning && !(planMode !== "auto" && mustGoSpots.length === 0) ? { backgroundColor: GW_BLUE } : {}}
             >
               {isPlanning ? (
                 <>
@@ -662,7 +644,7 @@ export default function DesktopPage() {
                 <div className="flex min-h-[260px] flex-col items-center justify-center rounded-lg bg-[#f4f7f3] px-6 text-center">
                   <Map size={34} className="mb-3 text-[#9aad9f]" />
                   <p className="text-sm font-black text-[#526158]">아직 생성된 루트가 없습니다.</p>
-                  <p className="mt-2 text-xs leading-5 text-[#75837b]">설계 조건을 고른 뒤 원스톱 루트를 생성하세요.</p>
+                  <p className="mt-2 text-xs leading-5 text-[#75837b]">계획 조건을 고른 뒤 원스톱 루트를 생성하세요.</p>
                 </div>
               )}
             </div>
@@ -1216,21 +1198,19 @@ function ModeButton({ active, icon, label, onClick }: { active: boolean; icon: R
 function buildCourse({
   places,
   mustGoIds,
-  planIntensity,
   planMode,
-  includeFoodAndStay,
+  theme,
   travelMode,
   weatherByPlaceId,
 }: {
   places: Place[];
   mustGoIds: string[];
-  planIntensity: PlanIntensity;
   planMode: PlanMode;
-  includeFoodAndStay: boolean;
+  theme: PlanTheme;
   travelMode: TravelMode;
   weatherByPlaceId: Record<string, WeatherSummary>;
 }) {
-  return buildWellnessCourse({ places, mustGoIds, planIntensity, planMode, includeFoodAndStay, travelMode, weatherByPlaceId });
+  return buildWellnessCourse({ places, mustGoIds, planMode, theme, travelMode, weatherByPlaceId });
 }
 
 function isPlaceCourseItem(item: CourseItem): item is PlaceCourseItem {

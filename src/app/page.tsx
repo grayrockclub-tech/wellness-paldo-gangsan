@@ -8,7 +8,6 @@ import {
   BedDouble,
   Car,
   CheckCircle2,
-  Clock,
   Database,
   Filter,
   Footprints,
@@ -34,8 +33,8 @@ type PlaceCategory = "spot" | "food" | "stay";
 type MainCategoryFilter = "all" | PlaceCategory;
 type SubCategoryFilter = "전체" | "forest" | "yoga" | "meditation" | "healthy" | "local" | "resort" | "wellness" | "healing" | "hotel";
 type TravelMode = "walk" | "drive";
-type PlanIntensity = "relaxed" | "dense";
-type PlanMode = "auto" | "semi-auto";
+type PlanMode = "auto" | "selected-only" | "selected-with-recommendations";
+type PlanTheme = "food" | "forest" | "mindfulness" | "spa" | "temple" | "auto";
 type ActiveTab = "login" | "home" | "planner" | "map" | "profile";
 
 type Place = {
@@ -164,6 +163,13 @@ const KTO_MOCK_DATA: Place[] = [
 const spotSubCategories: SubCategoryFilter[] = ["전체", "forest", "yoga", "meditation"];
 const foodSubCategories: SubCategoryFilter[] = ["전체", "healthy", "local"];
 const staySubCategories: SubCategoryFilter[] = ["전체", "resort", "wellness", "healing", "hotel"];
+const routeThemes: { id: Exclude<PlanTheme, "auto">; label: string }[] = [
+  { id: "food", label: "맛집 탐방" },
+  { id: "forest", label: "숲속 트레킹" },
+  { id: "mindfulness", label: "명상·요가" },
+  { id: "spa", label: "온천·사우나" },
+  { id: "temple", label: "템플스테이" },
+];
 
 function getPlaceSourceDescription(place: Pick<Place, "contentId" | "dataSource">) {
   if (place.dataSource === "gangwon-restaurant") return "강원 일반음식점 API";
@@ -186,16 +192,14 @@ async function loadCourseCandidateWeather({
   places,
   mustGoIds,
   knownWeather,
-  includeFoodAndStay,
-  planIntensity,
+  planMode,
 }: {
   places: Place[];
   mustGoIds: string[];
   knownWeather: Record<string, WeatherSummary>;
-  includeFoodAndStay: boolean;
-  planIntensity: PlanIntensity;
+  planMode: PlanMode;
 }) {
-  const candidates = getCourseWeatherCandidates({ places, mustGoIds, includeFoodAndStay, planIntensity })
+  const candidates = getCourseWeatherCandidates({ places, mustGoIds, planMode })
     .filter((place) => !knownWeather[place.id])
     .slice(0, 10);
   if (candidates.length === 0) return {};
@@ -220,31 +224,19 @@ async function loadCourseCandidateWeather({
 function getCourseWeatherCandidates({
   places,
   mustGoIds,
-  includeFoodAndStay,
-  planIntensity,
+  planMode,
 }: {
   places: Place[];
   mustGoIds: string[];
-  includeFoodAndStay: boolean;
-  planIntensity: PlanIntensity;
+  planMode: PlanMode;
 }) {
   const mustGoSet = new Set(mustGoIds);
   const requiredPlaces = places.filter((place) => mustGoSet.has(place.id));
-  const spotLimit = planIntensity === "dense" ? 7 : 5;
-  const scoredSpots = places
-    .filter((place) => place.category === "spot")
+  if (planMode === "selected-only") return requiredPlaces;
+  const recommendations = places
     .sort((a, b) => b.score - a.score)
-    .slice(0, spotLimit);
-  const supportingPlaces = includeFoodAndStay
-    ? (["food", "stay"] as const).flatMap((category) =>
-        places
-          .filter((place) => place.category === category)
-          .sort((a, b) => b.score - a.score)
-          .slice(0, 3),
-      )
-    : [];
-
-  return uniquePlaces([...requiredPlaces, ...scoredSpots, ...supportingPlaces]);
+    .slice(0, 10);
+  return uniquePlaces([...requiredPlaces, ...recommendations]);
 }
 
 function uniquePlaces<TPlace extends Pick<Place, "id">>(places: TPlace[]) {
@@ -266,7 +258,7 @@ function buildCourseEvidence(course: CourseItem[], travelMode: TravelMode, weath
   const regionCount = new Set(placeItems.map((place) => place.region)).size;
   const evidence = [
     travelMode === "walk"
-      ? `뚜벅이 기준 이동 ${travelMinutes}분 이내로 동선을 압축`
+      ? `대중교통 기준 이동 ${travelMinutes}분 이내로 동선을 압축`
       : `자동차 기준 이동 ${travelMinutes}분 규모로 권역 연결`,
     cautionWeatherCount > 0
       ? `기상 부담 ${cautionWeatherCount}곳을 고려해 실내·회복형 장소 보강`
@@ -288,9 +280,9 @@ export default function Home() {
   const [mustGoSpots, setMustGoSpots] = useState<string[]>([]);
   const [viewingPlace, setViewingPlace] = useState<Place | null>(null);
   const [travelMode, setTravelMode] = useState<TravelMode>("walk");
-  const [planIntensity, setPlanIntensity] = useState<PlanIntensity>("relaxed");
   const [planMode, setPlanMode] = useState<PlanMode>("auto");
-  const [includeFoodAndStay, setIncludeFoodAndStay] = useState(true);
+  const [routeTheme, setRouteTheme] = useState<Exclude<PlanTheme, "auto">>("forest");
+  const [recommendationTheme, setRecommendationTheme] = useState<PlanTheme>("auto");
   const [isPlanning, setIsPlanning] = useState(false);
   const [generatedCourse, setGeneratedCourse] = useState<CourseItem[] | null>(null);
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
@@ -519,8 +511,8 @@ export default function Home() {
     event.stopPropagation();
     setMustGoSpots((prev) => {
       if (prev.includes(id)) return prev.filter((placeId) => placeId !== id);
-      if (prev.length >= 3) {
-        alert("꼭 가고 싶은 장소는 최대 3개까지 선택 가능합니다.");
+      if (prev.length >= 5) {
+        alert("꼭 가고 싶은 장소는 최대 5개까지 선택 가능합니다.");
         return prev;
       }
       return [...prev, id];
@@ -534,15 +526,14 @@ export default function Home() {
       places,
       mustGoIds: mustGoSpots,
       knownWeather: weatherByPlaceId,
-      includeFoodAndStay,
-      planIntensity,
+      planMode,
     });
     const nextWeatherByPlaceId = { ...weatherByPlaceId, ...courseWeather };
     setWeatherByPlaceId(nextWeatherByPlaceId);
     const remainingDelay = Math.max(0, 900 - (Date.now() - planningStartedAt));
 
     setTimeout(() => {
-      setGeneratedCourse(buildWellnessCourse({ places, mustGoIds: mustGoSpots, planIntensity, planMode, includeFoodAndStay, travelMode, weatherByPlaceId: nextWeatherByPlaceId }));
+      setGeneratedCourse(buildWellnessCourse({ places, mustGoIds: mustGoSpots, planMode, theme: planMode === "auto" ? routeTheme : recommendationTheme, travelMode, weatherByPlaceId: nextWeatherByPlaceId }));
       setIsPlanning(false);
       setActiveTab("map");
     }, remainingDelay);
@@ -738,55 +729,44 @@ export default function Home() {
         {activeTab === "planner" && (
           <div className="p-6">
             <h2 className="mb-6 text-2xl font-black tracking-tight" style={{ color: GW_BLUE }}>
-              원스톱 루트 설계
+              나만의 여행 계획
             </h2>
 
             <div className="space-y-5">
               <section className="glass-panel rounded-[2rem] p-6">
                 <h3 className="mb-4 flex items-center text-sm font-black text-slate-800">
-                  <SlidersHorizontal size={16} className="mr-2" style={{ color: GW_GREEN }} /> 설계 방식
+                  <SlidersHorizontal size={16} className="mr-2" style={{ color: GW_GREEN }} /> 루트 구성
                 </h3>
                 <div className="relative flex rounded-[1.2rem] border border-white/40 bg-white/30 p-1.5">
                   <button onClick={() => setPlanMode("auto")} className={`z-10 flex-1 rounded-[1rem] py-3 text-[12px] font-black transition-all ${planMode === "auto" ? "bg-white shadow-sm" : "text-slate-500"}`} style={planMode === "auto" ? { color: GW_BLUE } : {}}>
-                    전체 자동
+                    자동선택
                   </button>
-                  <button onClick={() => setPlanMode("semi-auto")} className={`z-10 flex-1 rounded-[1rem] py-3 text-[12px] font-black transition-all ${planMode === "semi-auto" ? "bg-white shadow-sm" : "text-slate-500"}`} style={planMode === "semi-auto" ? { color: GW_BLUE } : {}}>
-                    반자동 (선택 포함)
+                  <button onClick={() => setPlanMode("selected-only")} className={`z-10 flex-1 rounded-[1rem] py-3 text-[12px] font-black transition-all ${planMode !== "auto" ? "bg-white shadow-sm" : "text-slate-500"}`} style={planMode !== "auto" ? { color: GW_BLUE } : {}}>
+                    직접선택
                   </button>
                 </div>
-                {planMode === "semi-auto" && (
-                  <div className="mt-4 rounded-2xl border border-white/50 bg-white/40 p-4">
-                    <p className="mb-2 text-[10px] font-bold" style={{ color: GW_BLUE }}>
-                      꼭 포함할 장소 (스팟·맛집·숙소 통합 {mustGoSpots.length}/3)
-                    </p>
-                    {mustGoSpots.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {mustGoSpots.map((id) => {
-                          const spot = places.find((place) => place.id === id);
-                          if (!spot) return null;
-                          return (
-                            <span key={id} onClick={(event) => toggleMustGoSpot(event, id)} className="glass-button flex cursor-pointer items-center rounded-full px-3 py-1.5 text-[10px] font-bold">
-                              {spot.name} <X size={12} className="ml-1 text-slate-400" />
-                            </span>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="text-[11px] font-medium text-slate-500">탐색 탭에서 마음에 드는 스팟, 맛집, 숙소를 찜해주세요.</p>
-                    )}
-                  </div>
-                )}
               </section>
 
-              <section className="glass-panel flex items-center justify-between rounded-[2rem] p-6">
-                <div>
-                  <h3 className="mb-1 flex items-center text-sm font-black text-slate-800">
-                    <Utensils size={16} className="mr-2" style={{ color: GW_GREEN }} /> 맛집 및 숙소 자동 포함
-                  </h3>
-                  <p className="text-[11px] font-medium text-slate-500">일정에 건강 맛집과 힐링 숙소를 함께 배치합니다.</p>
-                </div>
-                <input type="checkbox" checked={includeFoodAndStay} onChange={(event) => setIncludeFoodAndStay(event.target.checked)} className="h-5 w-5 cursor-pointer rounded accent-emerald-600" />
-              </section>
+              {planMode === "auto" ? (
+                <section className="glass-panel rounded-[2rem] p-6">
+                  <h3 className="mb-1 flex items-center text-sm font-black text-slate-800"><Leaf size={16} className="mr-2" style={{ color: GW_GREEN }} /> 원하는 테마</h3>
+                  <p className="mb-4 text-[11px] font-medium text-slate-500">테마에 맞는 스팟·맛집·숙소를 앱이 조합합니다.</p>
+                  <div className="flex flex-wrap gap-2">
+                    {routeThemes.map((theme) => <button key={theme.id} onClick={() => setRouteTheme(theme.id)} className={`rounded-full border px-3 py-2 text-[11px] font-black transition-all ${routeTheme === theme.id ? "text-white shadow-sm" : "border-white/70 bg-white/45 text-slate-500"}`} style={routeTheme === theme.id ? { backgroundColor: GW_GREEN, borderColor: GW_GREEN } : {}}>{theme.label}</button>)}
+                  </div>
+                </section>
+              ) : (
+                <section className="glass-panel rounded-[2rem] p-6">
+                  <h3 className="mb-1 flex items-center text-sm font-black text-slate-800"><CheckCircle2 size={16} className="mr-2" style={{ color: GW_GREEN }} /> 선택한 장소 {mustGoSpots.length}/5</h3>
+                  <p className="mb-4 text-[11px] font-medium text-slate-500">탐색 탭에서 체크한 장소를 기준으로 계획을 만듭니다.</p>
+                  {mustGoSpots.length > 0 ? <div className="flex flex-wrap gap-2">{mustGoSpots.map((id) => { const spot = places.find((place) => place.id === id); return spot ? <span key={id} onClick={(event) => toggleMustGoSpot(event, id)} className="glass-button flex cursor-pointer items-center rounded-full px-3 py-1.5 text-[10px] font-bold">{spot.name}<X size={12} className="ml-1 text-slate-400" /></span> : null; })}</div> : <p className="rounded-2xl bg-white/40 px-4 py-3 text-[11px] font-bold text-slate-500">탐색 탭에서 마음에 드는 장소를 먼저 체크해주세요.</p>}
+                  <div className="mt-5 grid grid-cols-2 gap-3">
+                    <button onClick={() => setPlanMode("selected-only")} className={`rounded-2xl border-2 px-3 py-3 text-[11px] font-black transition-all ${planMode === "selected-only" ? "bg-white/70" : "border-transparent bg-white/35 text-slate-400"}`} style={planMode === "selected-only" ? { borderColor: GW_GREEN, color: GW_GREEN } : {}}>선택한 장소만</button>
+                    <button onClick={() => setPlanMode("selected-with-recommendations")} className={`rounded-2xl border-2 px-3 py-3 text-[11px] font-black transition-all ${planMode === "selected-with-recommendations" ? "bg-white/70" : "border-transparent bg-white/35 text-slate-400"}`} style={planMode === "selected-with-recommendations" ? { borderColor: GW_BLUE, color: GW_BLUE } : {}}>앱 추천 포함</button>
+                  </div>
+                  {planMode === "selected-with-recommendations" && <div className="mt-5 border-t border-white/60 pt-4"><p className="mb-2 text-[11px] font-black text-slate-700">추천 테마 <span className="font-medium text-slate-400">(선택)</span></p><div className="flex flex-wrap gap-2"><button onClick={() => setRecommendationTheme("auto")} className={`rounded-full border px-3 py-2 text-[10px] font-black ${recommendationTheme === "auto" ? "text-white" : "border-white/70 bg-white/45 text-slate-500"}`} style={recommendationTheme === "auto" ? { backgroundColor: GW_BLUE, borderColor: GW_BLUE } : {}}>선택한 장소 기준</button>{routeThemes.map((theme) => <button key={theme.id} onClick={() => setRecommendationTheme(theme.id)} className={`rounded-full border px-3 py-2 text-[10px] font-black ${recommendationTheme === theme.id ? "text-white" : "border-white/70 bg-white/45 text-slate-500"}`} style={recommendationTheme === theme.id ? { backgroundColor: GW_BLUE, borderColor: GW_BLUE } : {}}>{theme.label}</button>)}</div></div>}
+                </section>
+              )}
 
               <section className="glass-panel rounded-[2rem] p-6">
                 <h3 className="mb-4 flex items-center text-sm font-black text-slate-800">
@@ -795,34 +775,20 @@ export default function Home() {
                 <div className="grid grid-cols-2 gap-3">
                   <div onClick={() => setTravelMode("walk")} className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 p-4 transition-all ${travelMode === "walk" ? "bg-white/60 backdrop-blur-md" : "glass-button border-transparent text-slate-400"}`} style={travelMode === "walk" ? { borderColor: GW_GREEN, color: GW_GREEN } : {}}>
                     <Footprints size={24} />
-                    <span className="text-[11px] font-black">뚜벅이</span>
+                    <span className="text-[11px] font-black">대중교통</span>
                   </div>
                   <div onClick={() => setTravelMode("drive")} className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 p-4 transition-all ${travelMode === "drive" ? "bg-white/60 backdrop-blur-md" : "glass-button border-transparent text-slate-400"}`} style={travelMode === "drive" ? { borderColor: GW_BLUE, color: GW_BLUE } : {}}>
                     <Car size={24} />
-                    <span className="text-[11px] font-black">자동차 (자가용)</span>
+                    <span className="text-[11px] font-black">자동차</span>
                   </div>
-                </div>
-              </section>
-
-              <section className="glass-panel rounded-[2rem] p-6">
-                <h3 className="mb-4 flex items-center text-sm font-black text-slate-800">
-                  <Clock size={16} className="mr-2" style={{ color: GW_GREEN }} /> 여행 강도
-                </h3>
-                <div className="relative flex rounded-[1.2rem] border border-white/40 bg-white/30 p-1.5">
-                  <button onClick={() => setPlanIntensity("relaxed")} className={`z-10 flex-1 rounded-[1rem] py-3 text-[12px] font-black transition-all ${planIntensity === "relaxed" ? "bg-white shadow-sm" : "text-slate-500"}`} style={planIntensity === "relaxed" ? { color: GW_BLUE } : {}}>
-                    여유롭게 (2곳)
-                  </button>
-                  <button onClick={() => setPlanIntensity("dense")} className={`z-10 flex-1 rounded-[1rem] py-3 text-[12px] font-black transition-all ${planIntensity === "dense" ? "bg-white shadow-sm" : "text-slate-500"}`} style={planIntensity === "dense" ? { color: GW_BLUE } : {}}>
-                    빽빽하게 (3곳 이상)
-                  </button>
                 </div>
               </section>
 
               <button
                 onClick={generateCourse}
-                disabled={isPlanning || (planMode === "semi-auto" && mustGoSpots.length === 0)}
+                disabled={isPlanning || (planMode !== "auto" && mustGoSpots.length === 0)}
                 className="flex w-full items-center justify-center rounded-[2rem] py-5 text-sm font-black text-white shadow-[0_10px_30px_rgba(0,91,170,0.3)] transition-all active:scale-95 disabled:bg-slate-300 disabled:shadow-none"
-                style={!isPlanning && !(planMode === "semi-auto" && mustGoSpots.length === 0) ? { backgroundColor: GW_BLUE } : {}}
+                style={!isPlanning && !(planMode !== "auto" && mustGoSpots.length === 0) ? { backgroundColor: GW_BLUE } : {}}
               >
                 {isPlanning ? (
                   <>
@@ -872,7 +838,7 @@ export default function Home() {
                       원스톱 치유 루트
                     </h2>
                     <p className="mt-1 text-[11px] font-bold uppercase tracking-wider opacity-80" style={{ color: GW_GREEN }}>
-                      {travelMode === "walk" ? "뚜벅이 모드" : "자동차 모드"} · 웰니스+맛집+숙소 완벽 연계
+                      {travelMode === "walk" ? "대중교통 모드" : "자동차 모드"} · 웰니스+맛집+숙소 완벽 연계
                     </p>
                   </div>
                   <button
@@ -1119,7 +1085,7 @@ export default function Home() {
       <nav className="glass-nav fixed bottom-6 left-1/2 z-[90] flex w-[90%] max-w-[340px] -translate-x-1/2 items-center justify-between rounded-[2rem] px-2 py-2">
         {[
           { id: "home", icon: <Search size={22} />, label: "탐색" },
-          { id: "planner", icon: <Filter size={22} />, label: "설계" },
+          { id: "planner", icon: <Filter size={22} />, label: "계획" },
           { id: "map", icon: <Map size={22} />, label: "경로" },
           { id: "profile", icon: <User size={22} />, label: "MY" },
         ].map((tab) => (
@@ -1206,7 +1172,7 @@ function MobileRouteSummary({
           </h3>
         </div>
         <span className="shrink-0 rounded-xl bg-white/70 px-3 py-2 text-[10px] font-black" style={{ color: GW_BLUE }}>
-          {travelMode === "walk" ? "뚜벅이" : "자동차"}
+          {travelMode === "walk" ? "대중교통" : "자동차"}
         </span>
       </div>
       <div className="grid grid-cols-3 gap-2">

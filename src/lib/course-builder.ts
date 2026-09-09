@@ -1,7 +1,7 @@
 export type CoursePlaceCategory = "spot" | "food" | "stay";
 export type CourseTravelMode = "walk" | "drive";
-export type CoursePlanIntensity = "relaxed" | "dense";
-export type CoursePlanMode = "auto" | "semi-auto";
+export type CoursePlanMode = "auto" | "selected-only" | "selected-with-recommendations";
+export type CourseTheme = "food" | "forest" | "mindfulness" | "spa" | "temple" | "auto";
 export type CourseWeatherActivityLevel = "good" | "normal" | "caution";
 
 export type CoursePlace = {
@@ -43,42 +43,65 @@ export type CourseWeatherSummary = {
 export function buildWellnessCourse<TPlace extends CoursePlace>({
   places,
   mustGoIds,
-  planIntensity,
   planMode,
-  includeFoodAndStay,
+  theme,
   travelMode,
   weatherByPlaceId = {},
 }: {
   places: TPlace[];
   mustGoIds: string[];
-  planIntensity: CoursePlanIntensity;
   planMode: CoursePlanMode;
-  includeFoodAndStay: boolean;
+  theme: CourseTheme;
   travelMode: CourseTravelMode;
   weatherByPlaceId?: Record<string, CourseWeatherSummary>;
 }) {
   const mustGoSet = new Set(mustGoIds);
   const mandatory = places.filter((place) => mustGoSet.has(place.id));
-  const spotCount = planIntensity === "dense" ? 3 : 2;
-  const scoringContext = { mustGoSet, travelMode, weatherByPlaceId };
-  const selectedSpots = orderByNearestPath(selectSpots(places, mandatory, spotCount, planMode, scoringContext), mandatory, travelMode);
-  const selectedFood = includeFoodAndStay ? selectSupportingPlace(places, mandatory, selectedSpots, "food", scoringContext) : undefined;
-  const selectedStay = includeFoodAndStay ? selectSupportingPlace(places, mandatory, [...selectedSpots, selectedFood].filter(Boolean) as TPlace[], "stay", scoringContext) : undefined;
+  const scoringContext = { mustGoSet, travelMode, weatherByPlaceId, theme };
+
+  if (planMode === "selected-only") {
+    return buildSelectedOnlyCourse(mandatory, travelMode, scoringContext);
+  }
+
+  const selectedSpots = orderByNearestPath(
+    selectSpots(places, mandatory, planMode === "auto" ? 2 : Math.max(2, 3 - mandatory.filter((place) => place.category === "spot").length), planMode, scoringContext),
+    mandatory,
+    travelMode,
+  );
+  const selectedFood = theme === "food" ? undefined : selectSupportingPlace(places, mandatory, selectedSpots, "food", scoringContext);
+  const selectedStay = selectSupportingPlace(places, mandatory, [...selectedSpots, selectedFood].filter(Boolean) as TPlace[], "stay", scoringContext);
 
   const timeline: WellnessCourseItem<TPlace>[] = [];
   const currentTime = new Date();
   currentTime.setHours(10, 0, 0);
 
-  addPlace(timeline, currentTime, selectedSpots[0], 120, makeReason(selectedSpots[0], { mustGoSet, anchor: selectedSpots[0], role: "spot", order: 1, travelMode, weatherByPlaceId }));
+  addPlace(timeline, currentTime, selectedSpots[0], selectedSpots[0]?.category === "food" ? 90 : 120, makeReason(selectedSpots[0], { mustGoSet, anchor: selectedSpots[0], role: selectedSpots[0]?.category ?? "spot", order: 1, travelMode, weatherByPlaceId }));
 
   addLegAndPlace(timeline, currentTime, selectedSpots[0], selectedFood, travelMode, 90, makeReason(selectedFood, { mustGoSet, anchor: selectedSpots[0], role: "food", travelMode, weatherByPlaceId }));
-  addLegAndPlace(timeline, currentTime, selectedFood ?? selectedSpots[0], selectedSpots[1], travelMode, 120, makeReason(selectedSpots[1], { mustGoSet, anchor: selectedFood ?? selectedSpots[0], role: "spot", order: 2, travelMode, weatherByPlaceId }));
-
-  if (planIntensity === "dense") {
-    addLegAndPlace(timeline, currentTime, selectedSpots[1], selectedSpots[2], travelMode, 90, makeReason(selectedSpots[2], { mustGoSet, anchor: selectedSpots[1], role: "spot", order: 3, travelMode, weatherByPlaceId }));
-  }
+  addLegAndPlace(timeline, currentTime, selectedFood ?? selectedSpots[0], selectedSpots[1], travelMode, selectedSpots[1]?.category === "food" ? 90 : 120, makeReason(selectedSpots[1], { mustGoSet, anchor: selectedFood ?? selectedSpots[0], role: selectedSpots[1]?.category ?? "spot", order: 2, travelMode, weatherByPlaceId }));
 
   addLegAndPlace(timeline, currentTime, selectedSpots.at(-1), selectedStay, travelMode, 60, makeReason(selectedStay, { mustGoSet, anchor: selectedSpots.at(-1), role: "stay", travelMode, weatherByPlaceId }), " (체크인 및 휴식)");
+
+  return timeline;
+}
+
+function buildSelectedOnlyCourse<TPlace extends CoursePlace>(
+  mandatory: TPlace[],
+  travelMode: CourseTravelMode,
+  context: ScoringContext,
+) {
+  const orderedPlaces = orderByNearestPath(mandatory, mandatory, travelMode);
+  const timeline: WellnessCourseItem<TPlace>[] = [];
+  const currentTime = new Date();
+  currentTime.setHours(10, 0, 0);
+
+  orderedPlaces.forEach((place, index) => {
+    const previous = orderedPlaces[index - 1];
+    if (previous) addTravel(timeline, currentTime, travelMode, estimateTravelMinutes(previous, place, travelMode));
+    const duration = place.category === "stay" ? 60 : place.category === "food" ? 90 : 120;
+    const suffix = place.category === "stay" ? " (체크인 및 휴식)" : "";
+    addPlace(timeline, currentTime, place, duration, makeReason(place, { ...context, anchor: previous, role: place.category, order: index + 1 }), suffix);
+  });
 
   return timeline;
 }
@@ -87,6 +110,7 @@ type ScoringContext = {
   mustGoSet: Set<string>;
   travelMode: CourseTravelMode;
   weatherByPlaceId: Record<string, CourseWeatherSummary>;
+  theme: CourseTheme;
 };
 
 function selectSpots<TPlace extends CoursePlace>(
@@ -96,15 +120,16 @@ function selectSpots<TPlace extends CoursePlace>(
   planMode: CoursePlanMode,
   context: ScoringContext,
 ) {
-  const mandatorySpots = mandatory.filter((place) => place.category === "spot");
+  const primaryCategory: CoursePlaceCategory = context.theme === "food" ? "food" : "spot";
+  const mandatorySpots = mandatory.filter((place) => place.category === primaryCategory);
   const selected = [...mandatorySpots];
-  const baseAnchors = planMode === "semi-auto" ? mandatory : [];
+  const baseAnchors = planMode === "selected-with-recommendations" ? mandatory : [];
 
   while (selected.length < spotCount) {
     const anchors = [...baseAnchors, ...selected];
     const candidate = places
-      .filter((place) => place.category === "spot" && !selected.some((selectedPlace) => selectedPlace.id === place.id))
-      .sort((a, b) => scoreCandidate(b, anchors, "spot", context) - scoreCandidate(a, anchors, "spot", context))[0];
+      .filter((place) => place.category === primaryCategory && !selected.some((selectedPlace) => selectedPlace.id === place.id))
+      .sort((a, b) => scoreCandidate(b, anchors, primaryCategory, context) - scoreCandidate(a, anchors, primaryCategory, context))[0];
 
     if (!candidate) break;
     selected.push(candidate);
@@ -133,18 +158,20 @@ function scoreCandidate(place: CoursePlace, anchors: CoursePlace[], role: Course
   const sameRegionBonus = anchors.some((anchor) => anchor.region === place.region) ? 24 : 0;
   const mustGoBonus = context.mustGoSet.has(place.id) ? 40 : 0;
   const categoryBonus = place.category === role ? 18 : 0;
-  const subCategoryBonus = getSubCategoryBonus(place);
+  const themeBonus = getThemeBonus(place, context.theme);
   const weatherBonus = getWeatherFitScore(place, context.weatherByPlaceId[place.id]);
   const distancePenalty = getDistancePenalty(nearestDistance, context.travelMode);
-  return place.score * 12 + sameRegionBonus + mustGoBonus + categoryBonus + subCategoryBonus + weatherBonus - distancePenalty;
+  return place.score * 12 + sameRegionBonus + mustGoBonus + categoryBonus + themeBonus + weatherBonus - distancePenalty;
 }
 
-function getSubCategoryBonus(place: CoursePlace) {
+function getThemeBonus(place: CoursePlace, theme: CourseTheme) {
   const text = `${place.name} ${place.desc} ${place.subCategory}`;
-  if (/휴양림|숲|산림|생태|공원|전나무|계곡/.test(text)) return 16;
-  if (/산채|막국수|순두부|한식|로컬|향토|건강/.test(text)) return 14;
-  if (/한옥|리조트|펜션|웰니스|휴식|스테이/.test(text)) return 14;
-  return 0;
+  if (theme === "auto") return 0;
+  if (theme === "food") return place.category === "food" || /산채|막국수|순두부|한식|로컬|향토|건강|식당/.test(text) ? 80 : 0;
+  if (theme === "forest") return /휴양림|숲|산림|생태|공원|전나무|계곡|트레킹|둘레길/.test(text) ? 80 : 0;
+  if (theme === "mindfulness") return /요가|명상|다도|마음|디톡스|웰니스/.test(text) ? 80 : 0;
+  if (theme === "spa") return /온천|사우나|스파|찜질|온열|목욕/.test(text) ? 80 : 0;
+  return /사찰|템플|절|불교|한옥/.test(text) ? 80 : 0;
 }
 
 function getWeatherFitScore(place: CoursePlace, weather?: CourseWeatherSummary) {

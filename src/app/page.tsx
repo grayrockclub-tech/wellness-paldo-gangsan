@@ -633,7 +633,7 @@ export default function Home() {
   }
 
   return (
-    <div className={`relative mx-auto min-h-screen overflow-hidden bg-slate-50/50 font-sans text-slate-800 ${activeTab === "profile" ? "w-full max-w-6xl shadow-none" : "max-w-md shadow-2xl"}`}>
+    <div className={`relative mx-auto min-h-screen w-full overflow-x-hidden bg-slate-50/50 font-sans text-slate-800 ${activeTab === "profile" ? "max-w-6xl shadow-none" : "max-w-md shadow-2xl"}`}>
       <style>{styles}</style>
       <div className="animate-blob pointer-events-none fixed left-[-15%] top-[-5%] h-80 w-80 rounded-full opacity-20 mix-blend-multiply blur-3xl" style={{ backgroundColor: GW_GREEN }} />
       <div className="animate-blob animation-delay-2000 pointer-events-none fixed right-[-10%] top-[40%] h-72 w-72 rounded-full opacity-15 mix-blend-multiply blur-3xl" style={{ backgroundColor: GW_BLUE }} />
@@ -661,7 +661,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="mb-4 grid grid-cols-4 gap-2">
+            <div className="mb-4 grid grid-cols-2 gap-2 min-[390px]:grid-cols-4">
               {[
                 { id: "all", label: "전체" },
                 { id: "spot", label: "힐링스팟" },
@@ -674,7 +674,7 @@ export default function Home() {
                     setMainCategoryFilter(category.id as MainCategoryFilter);
                     setSubCategoryFilter("전체");
                   }}
-                  className={`rounded-2xl border py-2.5 text-[11px] font-black transition-all ${
+                  className={`min-w-0 rounded-2xl border px-1 py-2.5 text-[11px] font-black transition-all ${
                     mainCategoryFilter === category.id ? "border-transparent text-white shadow-md" : "glass-button text-slate-600"
                   }`}
                   style={mainCategoryFilter === category.id ? { backgroundColor: GW_BLUE } : {}}
@@ -684,7 +684,7 @@ export default function Home() {
               ))}
             </div>
 
-            <div className="no-scrollbar mb-2 flex space-x-2 overflow-x-auto pb-4">
+            <div className="mb-2 flex flex-wrap gap-2 pb-4">
               {mainCategoryFilter === "all" && <span className="px-3 py-2 text-[11px] font-bold text-slate-400">카테고리를 선택하세요</span>}
               {mainCategoryFilter === "spot" && spotSubCategories.map((category) => (
                 <SubCategoryButton key={category} category={category} current={subCategoryFilter} onClick={setSubCategoryFilter} />
@@ -700,11 +700,11 @@ export default function Home() {
             <div className="space-y-4">
               {filteredPlaces.map((place) => (
                 <div key={place.id} onClick={() => setViewingPlace(place)} className="glass-panel group relative cursor-pointer rounded-[2rem] p-5 transition-all hover:border-white">
-                  <div className="flex items-start space-x-4">
+                  <div className="flex min-w-0 items-start space-x-4">
                     <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white/60 shadow-[inset_0_2px_5px_rgba(255,255,255,0.8)]" style={{ color: GW_GREEN }}>
                       {place.category === "food" ? <Utensils size={24} /> : place.category === "stay" ? <BedDouble size={24} /> : <Leaf size={24} />}
                     </div>
-                    <div className="flex-1 pr-8">
+                    <div className="min-w-0 flex-1 pr-8">
                       <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
                         <span className="shrink-0 whitespace-nowrap rounded-md border border-white/50 bg-white/60 px-2 py-0.5 text-[9px] font-black" style={{ color: GW_BLUE }}>
                           강원 {place.region}

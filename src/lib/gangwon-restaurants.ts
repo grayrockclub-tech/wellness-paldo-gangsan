@@ -6,7 +6,7 @@ const RESTAURANT_DATASET_PATH = "/uddi:b5e09df5-615b-4d00-8692-826b13ab01c1";
 const RESTAURANT_CACHE_SECONDS = 60 * 60 * 24;
 const GEOCODE_CACHE_SECONDS = 60 * 60 * 24 * 30;
 const MAX_RESTAURANT_PLACES = 100;
-const RESTAURANT_CANDIDATE_LIMIT = 120;
+const RESTAURANT_CANDIDATE_LIMIT = 140;
 const RESTAURANT_PAGE_SIZE = 1000;
 const MAX_RESTAURANT_FETCH_PAGES = 20;
 const GEOCODE_CONCURRENCY = 15;
@@ -87,9 +87,7 @@ export async function getGangwonRestaurantPlaces(): Promise<GangwonRestaurantPla
       return mapRestaurantRow(row, coordinates);
     });
 
-  return results
-    .flatMap((result) => (result ? [result] : []))
-    .slice(0, MAX_RESTAURANT_PLACES);
+  return prioritizeRestaurantPlaces(results.flatMap((result) => (result ? [result] : [])));
 }
 
 async function fetchGangwonRestaurantRows() {
@@ -165,7 +163,7 @@ function selectRestaurantCandidates(rows: GangwonRestaurantRow[]) {
   const selectedKeys = new Set<string>();
   for (const [region, quota] of Object.entries(regionQuotas)) {
     const regionRows = byRegion.get(region) ?? [];
-    for (const row of regionRows.slice(0, quota)) {
+    for (const row of regionRows.slice(0, quota + 2)) {
       const key = restaurantKey(row);
       if (selectedKeys.has(key)) continue;
       selected.push(row);
@@ -182,6 +180,37 @@ function selectRestaurantCandidates(rows: GangwonRestaurantRow[]) {
   }
 
   return selected;
+}
+
+function prioritizeRestaurantPlaces(places: GangwonRestaurantPlace[]) {
+  const byRegion = new Map<string, GangwonRestaurantPlace[]>();
+  for (const place of places) {
+    const regionPlaces = byRegion.get(place.region) ?? [];
+    regionPlaces.push(place);
+    byRegion.set(place.region, regionPlaces);
+  }
+
+  const selected: GangwonRestaurantPlace[] = [];
+  const selectedIds = new Set<string>();
+  for (const [region, quota] of Object.entries(regionQuotas)) {
+    for (const place of (byRegion.get(region) ?? []).slice(0, quota)) {
+      selected.push(place);
+      selectedIds.add(place.id);
+    }
+  }
+
+  const addFrom = (allowedRegions: Set<string>) => {
+    for (const place of places) {
+      if (selected.length >= MAX_RESTAURANT_PLACES) return;
+      if (selectedIds.has(place.id) || !allowedRegions.has(place.region)) continue;
+      selected.push(place);
+      selectedIds.add(place.id);
+    }
+  };
+
+  addFrom(new Set(otherRegions));
+  addFrom(new Set(Object.keys(majorRegionQuotas)));
+  return selected.slice(0, MAX_RESTAURANT_PLACES);
 }
 
 async function mapWithConcurrency<TInput, TOutput>(

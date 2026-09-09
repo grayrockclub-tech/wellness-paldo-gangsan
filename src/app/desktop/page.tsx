@@ -287,6 +287,7 @@ export default function DesktopPage() {
   const [departureDate, setDepartureDate] = useState(() => currentLocalDateTime().slice(0, 10));
   const [departureClock, setDepartureClock] = useState(() => currentLocalDateTime().slice(11, 16));
   const [isResolvingOrigin, setIsResolvingOrigin] = useState(false);
+  const [originTransit, setOriginTransit] = useState<TransitRoute | null>(null);
   const [transitLegs, setTransitLegs] = useState<Record<number, TransitRoute>>({});
   const [isPlanning, setIsPlanning] = useState(false);
   const [generatedCourse, setGeneratedCourse] = useState<CourseItem[] | null>(null);
@@ -411,15 +412,17 @@ export default function DesktopPage() {
     } finally { setIsResolvingOrigin(false); }
   };
 
-  const loadTransitRoutes = async (course: CourseItem[]) => {
+  const loadTransitRoutes = async (course: CourseItem[], origin: TransitOrigin) => {
     const destinations = course.filter(isPlaceCourseItem);
-    const requests = destinations.slice(1).map((destination, index) => {
-      const start = destinations[index];
+    const requests = destinations.map((destination, index) => {
+      const start = index === 0 ? origin : destinations[index - 1];
       const params = new URLSearchParams({ startLat: String(start.lat), startLng: String(start.lng), startName: start.name, endLat: String(destination.lat), endLng: String(destination.lng), endName: destination.name });
       return fetch(`/api/wellness/transit?${params}`).then(async (response) => (await response.json()) as TransitRoute);
     });
     const results = await Promise.allSettled(requests);
-    setTransitLegs(Object.fromEntries(results.map((result, index) => [index, result.status === "fulfilled" ? result.value : { status: "unavailable", message: "대중교통 정보를 불러오지 못했습니다." } satisfies TransitRoute])));
+    const routes = results.map((result) => result.status === "fulfilled" ? result.value : { status: "unavailable", message: "대중교통 정보를 불러오지 못했습니다." } satisfies TransitRoute);
+    setOriginTransit(routes[0] ?? null);
+    setTransitLegs(Object.fromEntries(routes.slice(1).map((route, index) => [index, route])));
   };
 
   const moveSelectedPlace = (placeId: string, direction: -1 | 1) => {
@@ -432,8 +435,9 @@ export default function DesktopPage() {
     if (planMode !== "selected-only" || !generatedCourse) return;
     const course = buildCourse({ places, mustGoIds: nextOrder, planMode, theme: recommendationTheme, travelMode, startTime: combineDepartureDateTime(departureDate, departureClock), manualOrderIds: nextOrder, weatherByPlaceId });
     setGeneratedCourse(course);
+    setOriginTransit(null);
     setTransitLegs({});
-    if (travelMode === "walk" && transitOrigin) void loadTransitRoutes(course);
+    if (travelMode === "walk" && transitOrigin) void loadTransitRoutes(course, transitOrigin);
   };
 
   const generateCourse = async () => {
@@ -466,8 +470,9 @@ export default function DesktopPage() {
         weatherByPlaceId: nextWeatherByPlaceId,
       });
       setGeneratedCourse(timeline);
+      setOriginTransit(null);
       setTransitLegs({});
-      if (travelMode === "walk" && transitOrigin) void loadTransitRoutes(timeline);
+      if (travelMode === "walk" && transitOrigin) void loadTransitRoutes(timeline, transitOrigin);
       setIsPlanning(false);
     }, remainingDelay);
   };
@@ -726,6 +731,13 @@ export default function DesktopPage() {
               {generatedCourse ? (
                 <div className="space-y-4">
                   <CourseEvidencePanel items={generatedCourseEvidence} />
+                  {travelMode === "walk" && transitOrigin && (
+                    <section className="rounded-lg border border-dashed border-[#cbd9ce] bg-[#f7faf6] px-3 py-3 text-xs font-bold text-[#526158]">
+                      <p className="mb-1 text-[11px] font-black text-[#087a36]">출발지 → 첫 일정</p>
+                      <p className="mb-2">{transitOrigin.name}에서 대중교통으로 출발</p>
+                      <DesktopTransitRoute route={originTransit ?? undefined} fallbackDuration={0} />
+                    </section>
+                  )}
                   <Timeline course={generatedCourse} travelMode={travelMode} weatherByPlaceId={weatherByPlaceId} transitLegs={transitLegs} planMode={planMode} mustGoSpots={mustGoSpots} onMoveSelectedPlace={moveSelectedPlace} />
                 </div>
               ) : (

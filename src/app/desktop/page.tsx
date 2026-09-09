@@ -24,9 +24,16 @@ import {
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { buildWellnessCourse, type PlaceCourseItem as BuiltPlaceCourseItem, type WellnessCourseItem } from "@/lib/course-builder";
+import type { TransitOrigin, TransitRoute } from "@/lib/kakao-transit";
 
 const GW_GREEN = "#0DB14B";
 const GW_BLUE = "#005BAA";
+
+function currentLocalDateTime() {
+  const date = new Date();
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+  return date.toISOString().slice(0, 16);
+}
 
 type PlaceCategory = "spot" | "food" | "stay";
 type MainCategoryFilter = "all" | PlaceCategory;
@@ -269,6 +276,11 @@ export default function DesktopPage() {
   const [planMode, setPlanMode] = useState<PlanMode>("auto");
   const [routeTheme, setRouteTheme] = useState<Exclude<PlanTheme, "auto">>("forest");
   const [recommendationTheme, setRecommendationTheme] = useState<PlanTheme>("auto");
+  const [transitOrigin, setTransitOrigin] = useState<TransitOrigin | null>(null);
+  const [originQuery, setOriginQuery] = useState("");
+  const [departureTime, setDepartureTime] = useState(currentLocalDateTime);
+  const [isResolvingOrigin, setIsResolvingOrigin] = useState(false);
+  const [transitLegs, setTransitLegs] = useState<Record<number, TransitRoute>>({});
   const [isPlanning, setIsPlanning] = useState(false);
   const [generatedCourse, setGeneratedCourse] = useState<CourseItem[] | null>(null);
   const [weatherByPlaceId, setWeatherByPlaceId] = useState<Record<string, WeatherSummary>>({});
@@ -366,7 +378,48 @@ export default function DesktopPage() {
     });
   };
 
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) return alert("이 기기에서는 현재 위치를 사용할 수 없습니다.");
+    setIsResolvingOrigin(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setTransitOrigin({ name: "현재 위치", lat: position.coords.latitude, lng: position.coords.longitude });
+        setIsResolvingOrigin(false);
+      },
+      () => { setIsResolvingOrigin(false); alert("현재 위치를 가져오지 못했습니다. 출발지를 직접 입력해주세요."); },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  };
+
+  const resolveOriginQuery = async () => {
+    if (!originQuery.trim()) return;
+    setIsResolvingOrigin(true);
+    try {
+      const response = await fetch(`/api/wellness/transit/geocode?query=${encodeURIComponent(originQuery.trim())}`);
+      const origin = await response.json() as TransitOrigin & { error?: string };
+      if (!response.ok || !Number.isFinite(origin.lat) || !Number.isFinite(origin.lng)) throw new Error(origin.error);
+      setTransitOrigin(origin);
+    } catch {
+      alert("출발지를 찾지 못했습니다. 주소나 장소 이름을 더 자세히 입력해주세요.");
+    } finally { setIsResolvingOrigin(false); }
+  };
+
+  const loadTransitRoutes = async (course: CourseItem[]) => {
+    const destinations = course.filter(isPlaceCourseItem);
+    const requests = destinations.slice(1).map((destination, index) => {
+      const start = destinations[index];
+      const params = new URLSearchParams({ startLat: String(start.lat), startLng: String(start.lng), startName: start.name, endLat: String(destination.lat), endLng: String(destination.lng), endName: destination.name });
+      return fetch(`/api/wellness/transit?${params}`).then(async (response) => (await response.json()) as TransitRoute);
+    });
+    const results = await Promise.allSettled(requests);
+    setTransitLegs(Object.fromEntries(results.map((result, index) => [index, result.status === "fulfilled" ? result.value : { status: "unavailable", message: "대중교통 정보를 불러오지 못했습니다." } satisfies TransitRoute])));
+  };
+
   const generateCourse = async () => {
+    if (travelMode === "walk" && !transitOrigin) {
+      alert("대중교통 경로를 만들려면 현재 위치를 사용하거나 출발지를 직접 입력해주세요.");
+      return;
+    }
     setIsPlanning(true);
     setIsPlannerOpen(true);
     const planningStartedAt = Date.now();
@@ -387,9 +440,12 @@ export default function DesktopPage() {
         planMode,
         theme: planMode === "auto" ? routeTheme : recommendationTheme,
         travelMode,
+        startTime: departureTime,
         weatherByPlaceId: nextWeatherByPlaceId,
       });
       setGeneratedCourse(timeline);
+      setTransitLegs({});
+      if (travelMode === "walk" && transitOrigin) void loadTransitRoutes(timeline);
       setIsPlanning(false);
     }, remainingDelay);
   };
@@ -610,6 +666,16 @@ export default function DesktopPage() {
               </div>
             </ControlGroup>
 
+            {travelMode === "walk" && (
+              <ControlGroup title="대중교통 출발 설정">
+                <p className="mb-3 text-xs font-bold text-[#66756c]">출발 위치부터 실제 버스·지하철 경로를 조회합니다.</p>
+                <button onClick={useCurrentLocation} disabled={isResolvingOrigin} className="mb-2 flex w-full items-center justify-center gap-2 rounded-lg border border-[#bde7c8] bg-[#f1fbf4] px-3 py-3 text-xs font-black text-[#087a36] disabled:opacity-60"><MapPin size={15} />{isResolvingOrigin ? "현재 위치 확인 중" : transitOrigin?.name === "현재 위치" ? "현재 위치 사용 중" : "현재 위치 사용"}</button>
+                <div className="flex gap-2"><input value={originQuery} onChange={(event) => setOriginQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void resolveOriginQuery(); }} placeholder="출발지 주소 또는 장소명" className="min-w-0 flex-1 rounded-lg border border-[#dce6dc] px-3 py-3 text-xs font-bold" /><button onClick={() => void resolveOriginQuery()} disabled={isResolvingOrigin || !originQuery.trim()} className="rounded-lg px-3 text-xs font-black text-white disabled:bg-slate-300" style={{ backgroundColor: GW_BLUE }}>검색</button></div>
+                {transitOrigin && <p className="mt-2 text-xs font-black text-[#526158]">출발: {transitOrigin.name}</p>}
+                <label className="mt-3 block text-xs font-black text-[#526158]">출발 시간<input type="datetime-local" value={departureTime} onChange={(event) => setDepartureTime(event.target.value)} className="mt-2 w-full rounded-lg border border-[#dce6dc] px-3 py-3 text-xs font-bold" /></label>
+              </ControlGroup>
+            )}
+
             <button
               onClick={generateCourse}
               disabled={isPlanning || (planMode !== "auto" && mustGoSpots.length === 0)}
@@ -638,7 +704,7 @@ export default function DesktopPage() {
               {generatedCourse ? (
                 <div className="space-y-4">
                   <CourseEvidencePanel items={generatedCourseEvidence} />
-                  <Timeline course={generatedCourse} travelMode={travelMode} weatherByPlaceId={weatherByPlaceId} />
+                  <Timeline course={generatedCourse} travelMode={travelMode} weatherByPlaceId={weatherByPlaceId} transitLegs={transitLegs} />
                 </div>
               ) : (
                 <div className="flex min-h-[260px] flex-col items-center justify-center rounded-lg bg-[#f4f7f3] px-6 text-center">
@@ -1077,10 +1143,12 @@ function Timeline({
   course,
   travelMode,
   weatherByPlaceId,
+  transitLegs,
 }: {
   course: CourseItem[];
   travelMode: TravelMode;
   weatherByPlaceId: Record<string, WeatherSummary>;
+  transitLegs: Record<number, TransitRoute>;
 }) {
   return (
     <div className="space-y-4">
@@ -1088,7 +1156,7 @@ function Timeline({
         item.type === "travel" ? (
           <div key={`travel-${index}`} className="ml-5 flex items-center gap-2 rounded-lg border border-dashed border-[#cbd9ce] bg-[#f7faf6] px-3 py-2 text-xs font-bold text-[#526158]">
             {item.travelType === "walk" ? <Bus size={15} style={{ color: GW_GREEN }} /> : <Car size={15} style={{ color: GW_BLUE }} />}
-            이동 약 {item.duration}분
+            {item.travelType === "walk" ? <DesktopTransitRoute route={transitLegs[course.slice(0, index).filter((courseItem) => courseItem.type === "travel").length]} fallbackDuration={item.duration} /> : <>이동 약 {item.duration}분</>}
           </div>
         ) : (
           <article key={`${item.id}-${index}`} className="relative rounded-lg border border-[#dce6dc] bg-[#fbfcf8] p-4">
@@ -1126,6 +1194,13 @@ function Timeline({
       )}
     </div>
   );
+}
+
+function DesktopTransitRoute({ route, fallbackDuration }: { route?: TransitRoute; fallbackDuration: number }) {
+  if (!route) return <>대중교통 경로 조회 중</>;
+  if (route.status !== "ready") return <>{route.message ?? `이동 약 ${fallbackDuration}분`}</>;
+  const mode = route.mode === "BUS" ? "버스" : route.mode === "SUBWAY" ? "지하철" : route.mode === "BUS_AND_SUBWAY" ? "버스·지하철" : "대중교통";
+  return <span>{mode} {route.durationMinutes ?? fallbackDuration}분 · 환승 {route.transfers ?? 0}회{route.fare !== undefined ? ` · ${route.fare.toLocaleString()}원` : ""}{route.steps?.filter((step) => step.type !== "WALKING").slice(0, 2).map((step, index) => <span key={`${step.guidance}-${index}`} className="ml-2 rounded bg-white px-1.5 py-1 text-[11px]">{step.type === "BUS" ? "버스" : "지하철"} {step.vehicles?.join(", ") ?? ""} · {step.guidance}</span>)}{route.landingUrl ? <a href={route.landingUrl} target="_blank" rel="noreferrer" className="ml-2 text-[#005BAA] underline">카카오맵 보기</a> : null}</span>;
 }
 
 function CourseWeatherPill({ weather }: { weather?: WeatherSummary }) {
@@ -1201,6 +1276,7 @@ function buildCourse({
   planMode,
   theme,
   travelMode,
+  startTime,
   weatherByPlaceId,
 }: {
   places: Place[];
@@ -1208,9 +1284,10 @@ function buildCourse({
   planMode: PlanMode;
   theme: PlanTheme;
   travelMode: TravelMode;
+  startTime?: string;
   weatherByPlaceId: Record<string, WeatherSummary>;
 }) {
-  return buildWellnessCourse({ places, mustGoIds, planMode, theme, travelMode, weatherByPlaceId });
+  return buildWellnessCourse({ places, mustGoIds, planMode, theme, travelMode, startTime, weatherByPlaceId });
 }
 
 function isPlaceCourseItem(item: CourseItem): item is PlaceCourseItem {

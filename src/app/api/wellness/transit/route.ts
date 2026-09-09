@@ -1,5 +1,5 @@
 import { getKakaoRestApiKey } from "@/lib/kakao-auth";
-import type { TransitRoute } from "@/lib/kakao-transit";
+import type { TransitRoute, TransitStep } from "@/lib/kakao-transit";
 
 const cache = new Map<string, { expiresAt: number; route: TransitRoute }>();
 const CACHE_MS = 5 * 60 * 1000;
@@ -56,7 +56,7 @@ function normalizeTransitRoute(payload: Record<string, unknown>): TransitRoute {
   }
 
   const properties = asRecord(payload.properties);
-  const firstRoute = Array.isArray(properties?.routes) ? asRecord(properties.routes[0]) : undefined;
+  const firstRoute = Array.isArray(payload.routes) ? asRecord(payload.routes[0]) : undefined;
   const routeProperties = asRecord(firstRoute?.properties) ?? firstRoute;
   const landingUrl = typeof properties?.landingURL === "string" ? properties.landingURL : undefined;
 
@@ -67,6 +67,26 @@ function normalizeTransitRoute(payload: Record<string, unknown>): TransitRoute {
     fare: numberValue(asRecord(routeProperties?.fare)?.value),
     mode: normalizeMode(routeProperties?.type),
     landingUrl,
+    steps: Array.isArray(firstRoute?.steps) ? firstRoute.steps.map(normalizeStep).filter((step): step is TransitStep => step !== null) : [],
+  };
+}
+
+function normalizeStep(value: unknown): TransitStep | null {
+  const properties = asRecord(asRecord(value)?.properties);
+  if (!properties) return null;
+  const vehicles = Array.isArray(properties.vehicles)
+    ? properties.vehicles.map((vehicle) => asRecord(vehicle)?.name).filter((name): name is string => typeof name === "string")
+    : [];
+  const stops = Array.isArray(properties.stops)
+    ? properties.stops.map((stop) => asRecord(stop)?.name).filter((name): name is string => typeof name === "string")
+    : [];
+  const type = properties.type === "BUS" || properties.type === "SUBWAY" || properties.type === "WALKING" ? properties.type : "OTHER";
+  return {
+    type,
+    guidance: typeof properties.guidance === "string" ? properties.guidance : "이동",
+    durationMinutes: secondsToMinutes(properties.time),
+    vehicles,
+    stops: stops.length > 0 ? [stops[0], stops.at(-1)!] : [],
   };
 }
 

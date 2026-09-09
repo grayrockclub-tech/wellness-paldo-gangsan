@@ -1342,6 +1342,7 @@ function TransitRouteInfo({ route, compact = false }: { route: TransitRoute | nu
       {route.transfers !== undefined && <span>환승 {route.transfers}회</span>}
       {route.fare !== undefined && <span>{route.fare.toLocaleString()}원</span>}
       {route.landingUrl && <a href={route.landingUrl} target="_blank" rel="noreferrer" className="rounded-lg bg-blue-50 px-2 py-1 text-blue-700">카카오맵 보기</a>}
+      {route.steps?.filter((step) => step.type !== "WALKING").slice(0, 2).map((step, index) => <p key={`${step.guidance}-${index}`} className="w-full rounded-lg bg-white/60 px-2 py-1.5 text-[9px] leading-4 text-slate-600"><span className="font-black text-emerald-700">{step.type === "BUS" ? "버스" : step.type === "SUBWAY" ? "지하철" : "이동"}</span>{step.vehicles?.length ? ` ${step.vehicles.join(", ")}` : ""} · {step.guidance}{step.stops?.length === 2 ? ` (${step.stops[0]} → ${step.stops[1]})` : ""}</p>)}
     </div>
   );
 }

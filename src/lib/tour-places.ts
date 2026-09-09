@@ -1,4 +1,5 @@
 import { getCached } from "./cache";
+import { getCuratedWellnessPlaces } from "./curated-wellness-places";
 import { getGangwonRestaurantPlaces } from "./gangwon-restaurants";
 import { GANGWON_AREA_CODE, fetchTourApi } from "./tour-api";
 
@@ -27,7 +28,7 @@ export type WellnessPlace = {
   image?: string;
   contentId?: string;
   contentTypeId?: string;
-  dataSource?: "tourapi" | "gangwon-restaurant" | "sample";
+  dataSource?: "tourapi" | "gangwon-restaurant" | "curated" | "sample";
   descriptionSource?: "tourapi-overview" | "gangwon-restaurant" | "generated";
 };
 
@@ -94,7 +95,7 @@ const fallbackPlaces: WellnessPlace[] = [
 ];
 
 const categoryTargets: Record<WellnessPlaceCategory, number> = {
-  spot: 18,
+  spot: 50,
   food: 10,
   stay: 8,
 };
@@ -106,14 +107,14 @@ const detailOverviewTargets: Record<WellnessPlaceCategory, number> = {
 };
 
 const areaListRequests: Array<{ contentTypeId: string; rows: number }> = [
-  { contentTypeId: "12", rows: 50 },
+  { contentTypeId: "12", rows: 100 },
   { contentTypeId: "39", rows: 30 },
   { contentTypeId: "32", rows: 30 },
 ];
 
 const keywordRequests = [
-  ...["휴양림", "숲", "사찰"].map((keyword) => ({ keyword, rows: 8 })),
-  ...["웰니스", "치유", "명상", "요가", "템플스테이", "스파", "다도"].map((keyword) => ({ keyword, rows: 8 })),
+  ...["휴양림", "숲", "사찰"].map((keyword) => ({ keyword, rows: 20 })),
+  ...["웰니스", "치유", "명상", "요가", "템플스테이", "스파", "다도"].map((keyword) => ({ keyword, rows: 20 })),
   ...["산채", "곤드레"].map((keyword) => ({ keyword, rows: 8 })),
   ...["리조트", "한옥"].map((keyword) => ({ keyword, rows: 8 })),
 ];
@@ -174,6 +175,7 @@ export function getFallbackWellnessPlaces() {
 
 export async function getWellnessPlacesFromTourApi(): Promise<WellnessPlacesResult> {
   const warnings: string[] = [];
+  const curatedPlaces = getCuratedWellnessPlaces();
 
   try {
     const [areaResults, keywordResults, restaurantResult] = await Promise.all([
@@ -194,13 +196,13 @@ export async function getWellnessPlacesFromTourApi(): Promise<WellnessPlacesResu
     const apiItemCount = items.length;
 
     const tourPlaces = await enrichPlacesWithDetailOverview(selectWellnessPlaces(items), warnings);
-    const places = mergeRestaurantPlaces(tourPlaces, restaurantResult.places);
+    const places = mergeCuratedPlaces(mergeRestaurantPlaces(tourPlaces, restaurantResult.places), curatedPlaces);
 
     if (places.length === 0) {
       warnings.push(
         `TourAPI returned ${apiItemCount} raw items and 0 usable places. Fallback sample data is being used.`,
       );
-      return fallbackResult(warnings);
+      return fallbackResult(warnings, curatedPlaces);
     }
 
     if (places.length < fallbackPlaces.length) {
@@ -208,7 +210,7 @@ export async function getWellnessPlacesFromTourApi(): Promise<WellnessPlacesResu
       return {
         source: "mixed",
         generatedAt: new Date().toISOString(),
-        places: mergeWithFallbackPlaces(places),
+        places: mergeWithFallbackPlaces(places, curatedPlaces),
         warnings,
       };
     }
@@ -221,7 +223,7 @@ export async function getWellnessPlacesFromTourApi(): Promise<WellnessPlacesResu
     };
   } catch (error) {
     warnings.push(error instanceof Error ? error.message : "TourAPI request failed.");
-    return fallbackResult(warnings);
+    return fallbackResult(warnings, curatedPlaces);
   }
 }
 
@@ -237,13 +239,13 @@ function collectTourItems(
   });
 }
 
-function mergeWithFallbackPlaces(places: WellnessPlace[]) {
+function mergeWithFallbackPlaces(places: WellnessPlace[], curatedPlaces: WellnessPlace[]) {
   const usedNames = new Set(places.map((place) => place.name));
   const supplements = fallbackPlaces
     .filter((place) => !usedNames.has(place.name))
     .map((place) => ({ ...place, id: `sample-${place.id}` }));
 
-  return [...places, ...supplements].slice(0, fallbackPlaces.length);
+  return mergeCuratedPlaces([...places, ...supplements], curatedPlaces);
 }
 
 async function fetchAreaList(contentTypeId: string, numOfRows: number) {
@@ -460,6 +462,18 @@ function mergeRestaurantPlaces(tourPlaces: WellnessPlace[], restaurantPlaces: We
   return [...nonFoodPlaces, ...restaurantPlaces];
 }
 
+function mergeCuratedPlaces(places: WellnessPlace[], curatedPlaces: WellnessPlace[]) {
+  const byName = new Set(curatedPlaces.map((place) => normalizePlaceName(place.name)));
+  return [
+    ...curatedPlaces,
+    ...places.filter((place) => !byName.has(normalizePlaceName(place.name))),
+  ];
+}
+
+function normalizePlaceName(name: string) {
+  return name.replace(/\s+/g, "").replace(/[()]/g, "").toLowerCase();
+}
+
 function resolveCategory(item: TourItem): WellnessPlaceCategory {
   const contentTypeId = String(item.contenttypeid ?? "");
   if (contentTypeId === "39") return "food";
@@ -552,11 +566,11 @@ function extractRegion(addr?: string) {
   return match?.[1]?.replace(/[시군]$/, "");
 }
 
-function fallbackResult(warnings: string[]): WellnessPlacesResult {
+function fallbackResult(warnings: string[], curatedPlaces: WellnessPlace[] = getCuratedWellnessPlaces()): WellnessPlacesResult {
   return {
     source: "fallback",
     generatedAt: new Date().toISOString(),
-    places: fallbackPlaces,
+    places: mergeCuratedPlaces(fallbackPlaces, curatedPlaces),
     warnings,
   };
 }

@@ -72,7 +72,7 @@ type Place = {
   contentId?: string;
   contentTypeId?: string;
   image?: string;
-  dataSource?: "tourapi" | "gangwon-restaurant" | "sample";
+  dataSource?: "tourapi" | "gangwon-restaurant" | "curated" | "sample";
 };
 
 type PlaceCourseItem = BuiltPlaceCourseItem<Place>;

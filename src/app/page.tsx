@@ -54,7 +54,7 @@ type Place = {
   contentId?: string;
   contentTypeId?: string;
   image?: string;
-  dataSource?: "tourapi" | "gangwon-restaurant" | "sample";
+  dataSource?: "tourapi" | "gangwon-restaurant" | "curated" | "sample";
 };
 
 type PlaceCourseItem = BuiltPlaceCourseItem<Place>;
@@ -186,6 +186,7 @@ function combineDepartureDateTime(date: string, time: string) {
 
 function getPlaceSourceDescription(place: Pick<Place, "contentId" | "dataSource">) {
   if (place.dataSource === "gangwon-restaurant") return "강원 일반음식점 API";
+  if (place.dataSource === "curated") return "웰니스 제휴 데이터";
   return place.contentId || place.dataSource === "tourapi" ? "한국관광공사 TourAPI" : "샘플 데이터";
 }
 

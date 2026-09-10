@@ -33,6 +33,11 @@ import {
 
 const GW_GREEN = "#0DB14B";
 const GW_BLUE = "#005BAA";
+const DEPARTURE_TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
+  const hour = String(Math.floor(index / 2)).padStart(2, "0");
+  const minute = index % 2 === 0 ? "00" : "30";
+  return `${hour}:${minute}`;
+});
 
 type PlaceCategory = "spot" | "food" | "stay";
 type MainCategoryFilter = "all" | PlaceCategory;
@@ -186,6 +191,11 @@ function combineDepartureDateTime(date: string, time: string) {
   return `${date}T${time}`;
 }
 
+function initialDepartureClock() {
+  const [hour, minute] = currentLocalDateTime().slice(11, 16).split(":").map(Number);
+  return `${String(hour).padStart(2, "0")}:${minute < 30 ? "00" : "30"}`;
+}
+
 function getPlaceSourceDescription(place: Pick<Place, "contentId" | "dataSource">) {
   if (place.dataSource === "gangwon-restaurant") return "강원 일반음식점 API";
   if (place.dataSource === "curated") return "웰니스 제휴 데이터";
@@ -302,7 +312,7 @@ export default function Home() {
   const [transitOrigin, setTransitOrigin] = useState<TransitOrigin | null>(null);
   const [originQuery, setOriginQuery] = useState("");
   const [departureDate, setDepartureDate] = useState(() => currentLocalDateTime().slice(0, 10));
-  const [departureClock, setDepartureClock] = useState(() => currentLocalDateTime().slice(11, 16));
+  const [departureClock, setDepartureClock] = useState(initialDepartureClock);
   const [isResolvingOrigin, setIsResolvingOrigin] = useState(false);
   const [originTransit, setOriginTransit] = useState<TransitRoute | null>(null);
   const [transitLegs, setTransitLegs] = useState<Record<number, TransitRoute>>({});
@@ -939,7 +949,7 @@ export default function Home() {
                     <button onClick={() => void resolveOriginQuery()} disabled={isResolvingOrigin || !originQuery.trim()} className="rounded-2xl px-4 text-[11px] font-black text-white disabled:bg-slate-300" style={{ backgroundColor: GW_BLUE }}>검색</button>
                   </div>
                   {transitOrigin && <p className="mt-3 rounded-xl bg-white/60 px-3 py-2 text-[10px] font-black text-slate-600"><MapPin size={12} className="mr-1 inline" style={{ color: GW_GREEN }} /> 출발: {transitOrigin.name}</p>}
-                  <div className="mt-4 grid grid-cols-2 gap-3"><label className="block text-[11px] font-black text-slate-700">출발 날짜<input type="date" value={departureDate} onChange={(event) => setDepartureDate(event.target.value)} className="mt-2 w-full rounded-2xl border border-white/70 bg-white/70 px-3 py-3 text-[11px] font-bold text-slate-700 outline-none" /></label><label className="block text-[11px] font-black text-slate-700">출발 시간<input type="time" value={departureClock} onChange={(event) => setDepartureClock(event.target.value)} className="mt-2 w-full rounded-2xl border border-white/70 bg-white/70 px-3 py-3 text-[11px] font-bold text-slate-700 outline-none" /></label></div>
+                  <div className="mt-4 grid grid-cols-2 gap-3"><label className="block text-[11px] font-black text-slate-700">출발 날짜<input type="date" value={departureDate} onChange={(event) => setDepartureDate(event.target.value)} className="mt-2 w-full rounded-2xl border border-white/70 bg-white/70 px-3 py-3 text-[11px] font-bold text-slate-700 outline-none" /></label><label className="block text-[11px] font-black text-slate-700">출발 시간<select value={departureClock} onChange={(event) => setDepartureClock(event.target.value)} className="mt-2 w-full rounded-2xl border border-white/70 bg-white/70 px-3 py-3 text-[11px] font-bold text-slate-700 outline-none">{DEPARTURE_TIME_OPTIONS.map((time) => <option key={time} value={time}>{time}</option>)}</select></label></div>
                 </section>
               )}
 

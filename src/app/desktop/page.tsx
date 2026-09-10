@@ -32,6 +32,11 @@ import { cachePlaceList, getCachedPlaceList } from "@/lib/place-list-cache";
 
 const GW_GREEN = "#0DB14B";
 const GW_BLUE = "#005BAA";
+const DEPARTURE_TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
+  const hour = String(Math.floor(index / 2)).padStart(2, "0");
+  const minute = index % 2 === 0 ? "00" : "30";
+  return `${hour}:${minute}`;
+});
 
 function currentLocalDateTime() {
   const date = new Date();
@@ -41,6 +46,11 @@ function currentLocalDateTime() {
 
 function combineDepartureDateTime(date: string, time: string) {
   return `${date}T${time}`;
+}
+
+function initialDepartureClock() {
+  const [hour, minute] = currentLocalDateTime().slice(11, 16).split(":").map(Number);
+  return `${String(hour).padStart(2, "0")}:${minute < 30 ? "00" : "30"}`;
 }
 
 type PlaceCategory = "spot" | "food" | "stay";
@@ -288,7 +298,7 @@ export default function DesktopPage() {
   const [transitOrigin, setTransitOrigin] = useState<TransitOrigin | null>(null);
   const [originQuery, setOriginQuery] = useState("");
   const [departureDate, setDepartureDate] = useState(() => currentLocalDateTime().slice(0, 10));
-  const [departureClock, setDepartureClock] = useState(() => currentLocalDateTime().slice(11, 16));
+  const [departureClock, setDepartureClock] = useState(initialDepartureClock);
   const [isResolvingOrigin, setIsResolvingOrigin] = useState(false);
   const [originTransit, setOriginTransit] = useState<TransitRoute | null>(null);
   const [transitLegs, setTransitLegs] = useState<Record<number, TransitRoute>>({});
@@ -718,7 +728,7 @@ export default function DesktopPage() {
                 <button onClick={useCurrentLocation} disabled={isResolvingOrigin} className="mb-2 flex w-full items-center justify-center gap-2 rounded-lg border border-[#bde7c8] bg-[#f1fbf4] px-3 py-3 text-xs font-black text-[#087a36] disabled:opacity-60"><MapPin size={15} />{isResolvingOrigin ? "현재 위치 확인 중" : transitOrigin?.name === "현재 위치" ? "현재 위치 사용 중" : "현재 위치 사용"}</button>
                 <div className="flex gap-2"><input value={originQuery} onChange={(event) => setOriginQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void resolveOriginQuery(); }} placeholder="출발지 주소 또는 장소명" className="min-w-0 flex-1 rounded-lg border border-[#dce6dc] px-3 py-3 text-xs font-bold" /><button onClick={() => void resolveOriginQuery()} disabled={isResolvingOrigin || !originQuery.trim()} className="rounded-lg px-3 text-xs font-black text-white disabled:bg-slate-300" style={{ backgroundColor: GW_BLUE }}>검색</button></div>
                 {transitOrigin && <p className="mt-2 text-xs font-black text-[#526158]">출발: {transitOrigin.name}</p>}
-                <div className="mt-3 grid grid-cols-2 gap-2"><label className="block text-xs font-black text-[#526158]">출발 날짜<input type="date" value={departureDate} onChange={(event) => setDepartureDate(event.target.value)} className="mt-2 w-full rounded-lg border border-[#dce6dc] px-3 py-3 text-xs font-bold" /></label><label className="block text-xs font-black text-[#526158]">출발 시간<input type="time" value={departureClock} onChange={(event) => setDepartureClock(event.target.value)} className="mt-2 w-full rounded-lg border border-[#dce6dc] px-3 py-3 text-xs font-bold" /></label></div>
+                <div className="mt-3 grid grid-cols-2 gap-2"><label className="block text-xs font-black text-[#526158]">출발 날짜<input type="date" value={departureDate} onChange={(event) => setDepartureDate(event.target.value)} className="mt-2 w-full rounded-lg border border-[#dce6dc] px-3 py-3 text-xs font-bold" /></label><label className="block text-xs font-black text-[#526158]">출발 시간<select value={departureClock} onChange={(event) => setDepartureClock(event.target.value)} className="mt-2 w-full rounded-lg border border-[#dce6dc] bg-white px-3 py-3 text-xs font-bold">{DEPARTURE_TIME_OPTIONS.map((time) => <option key={time} value={time}>{time}</option>)}</select></label></div>
               </ControlGroup>
             )}
 

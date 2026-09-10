@@ -249,7 +249,7 @@ function mergeWithFallbackPlaces(places: WellnessPlace[], curatedPlaces: Wellnes
 }
 
 async function fetchAreaList(contentTypeId: string, numOfRows: number) {
-  const cacheKey = `wellness-places:area:${contentTypeId}:${numOfRows}`;
+  const cacheKey = `wellness-places:area:${getKoreanDateKey()}:${contentTypeId}:${numOfRows}`;
   const { data } = await getCached(cacheKey, 60 * 60 * 12, () =>
     fetchTourApi({
       operation: "areaBasedList2",
@@ -267,7 +267,7 @@ async function fetchAreaList(contentTypeId: string, numOfRows: number) {
 }
 
 async function fetchKeywordList(keyword: string, numOfRows: number) {
-  const cacheKey = `wellness-places:keyword:${keyword}:${numOfRows}`;
+  const cacheKey = `wellness-places:keyword:${getKoreanDateKey()}:${keyword}:${numOfRows}`;
   const { data } = await getCached(cacheKey, 60 * 60 * 12, () =>
     fetchTourApi({
       operation: "searchKeyword2",
@@ -472,6 +472,17 @@ function mergeCuratedPlaces(places: WellnessPlace[], curatedPlaces: WellnessPlac
 
 function normalizePlaceName(name: string) {
   return name.replace(/\s+/g, "").replace(/[()]/g, "").toLowerCase();
+}
+
+function getKoreanDateKey() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
 function resolveCategory(item: TourItem): WellnessPlaceCategory {

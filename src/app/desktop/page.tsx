@@ -15,6 +15,7 @@ import {
   MapPin,
   Menu,
   Navigation,
+  RefreshCw,
   Save,
   Search,
   SlidersHorizontal,
@@ -24,9 +25,10 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildWellnessCourse, type PlaceCourseItem as BuiltPlaceCourseItem, type WellnessCourseItem } from "@/lib/course-builder";
 import type { TransitOrigin, TransitRoute } from "@/lib/kakao-transit";
+import { cachePlaceList, getCachedPlaceList } from "@/lib/place-list-cache";
 
 const GW_GREEN = "#0DB14B";
 const GW_BLUE = "#005BAA";
@@ -278,6 +280,7 @@ export default function DesktopPage() {
   const [selectedPlace, setSelectedPlace] = useState<Place>(PLACES[0]);
   const [places, setPlaces] = useState<Place[]>(PLACES);
   const [tourDataSource, setTourDataSource] = useState<"loading" | "tourapi" | "mixed" | "fallback">("loading");
+  const [isRefreshingPlaces, setIsRefreshingPlaces] = useState(false);
   const [travelMode, setTravelMode] = useState<TravelMode>("walk");
   const [planMode, setPlanMode] = useState<PlanMode>("auto");
   const [routeTheme, setRouteTheme] = useState<Exclude<PlanTheme, "auto">>("forest");
@@ -295,34 +298,41 @@ export default function DesktopPage() {
   const [isPlannerOpen, setIsPlannerOpen] = useState(false);
   const placeCardRefs = useRef<Record<string, HTMLElement | null>>({});
 
-  useEffect(() => {
-    let canceled = false;
-
-    async function loadTourPlaces() {
-      try {
-        const response = await fetch("/api/wellness/places");
-        if (!response.ok) throw new Error(`Failed to load places: ${response.status}`);
-        const data = (await response.json()) as TourPlacesResponse;
-        if (canceled) return;
-        if (Array.isArray(data.places) && data.places.length > 0) {
-          setPlaces(data.places);
-          setSelectedPlace(data.places[0]);
-          setMustGoSpots([]);
-          setGeneratedCourse(null);
-        }
-        setTourDataSource(data.source ?? "fallback");
-      } catch (error) {
-        console.error(error);
-        if (!canceled) setTourDataSource("fallback");
+  const refreshTourPlaces = useCallback(async () => {
+    setIsRefreshingPlaces(true);
+    try {
+      const response = await fetch("/api/wellness/places", { cache: "no-store" });
+      if (!response.ok) throw new Error(`Failed to load places: ${response.status}`);
+      const data = (await response.json()) as TourPlacesResponse;
+      if (Array.isArray(data.places) && data.places.length > 0) {
+        setPlaces(data.places);
+        setSelectedPlace(data.places[0]);
+        setMustGoSpots([]);
+        setGeneratedCourse(null);
+        cachePlaceList(data.places, data.source ?? "fallback");
       }
+      setTourDataSource(data.source ?? "fallback");
+    } catch (error) {
+      console.error(error);
+      setTourDataSource("fallback");
+    } finally {
+      setIsRefreshingPlaces(false);
     }
-
-    loadTourPlaces();
-
-    return () => {
-      canceled = true;
-    };
   }, []);
+
+  useEffect(() => {
+    const cached = getCachedPlaceList<Place>();
+    if (cached) {
+      void Promise.resolve().then(() => {
+        setPlaces(cached.places);
+        setSelectedPlace(cached.places[0]);
+        setTourDataSource(cached.source);
+      });
+      if (!cached.isCurrent) void Promise.resolve().then(refreshTourPlaces);
+      return;
+    }
+    void Promise.resolve().then(refreshTourPlaces);
+  }, [refreshTourPlaces]);
 
   useEffect(() => {
     let canceled = false;
@@ -501,6 +511,15 @@ export default function DesktopPage() {
               <div className="rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 font-bold">
                 Data <span className="ml-2 text-[#087a36]">{tourDataSource === "tourapi" ? "TourAPI" : tourDataSource === "mixed" ? "공공 API + 보강 데이터" : tourDataSource === "loading" ? "Loading" : "Sample"}</span>
               </div>
+              <button
+                type="button"
+                onClick={() => void refreshTourPlaces()}
+                disabled={isRefreshingPlaces}
+                className="flex items-center gap-2 rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 font-bold text-[#526158] disabled:opacity-60"
+              >
+                <RefreshCw size={16} className={isRefreshingPlaces ? "animate-spin" : ""} />
+                목록 새로고침
+              </button>
               <button
                 onClick={() => setIsPlannerOpen(true)}
                 className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-black text-white shadow-sm"

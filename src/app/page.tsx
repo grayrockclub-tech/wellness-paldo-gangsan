@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { buildWellnessCourse, type PlaceCourseItem as BuiltPlaceCourseItem, type WellnessCourseItem } from "@/lib/course-builder";
 import type { TransitOrigin, TransitRoute } from "@/lib/kakao-transit";
+import { cachePlaceList, getCachedPlaceList } from "@/lib/place-list-cache";
 import {
   BedDouble,
   Bus,
@@ -21,6 +22,7 @@ import {
   MapPin,
   MessageCircle,
   Navigation,
+  RefreshCw,
   Save,
   Search,
   SlidersHorizontal,
@@ -309,6 +311,7 @@ export default function Home() {
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
   const [places, setPlaces] = useState<Place[]>(KTO_MOCK_DATA);
   const [tourDataSource, setTourDataSource] = useState<"loading" | "tourapi" | "mixed" | "fallback">("loading");
+  const [isRefreshingPlaces, setIsRefreshingPlaces] = useState(false);
   const [weatherByPlaceId, setWeatherByPlaceId] = useState<Record<string, WeatherSummary>>({});
   const [selectedMapPlaceId, setSelectedMapPlaceId] = useState<string | null>(null);
   const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
@@ -359,31 +362,37 @@ export default function Home() {
     };
   }, []);
 
-  useEffect(() => {
-    let canceled = false;
-
-    async function loadTourPlaces() {
-      try {
-        const response = await fetch("/api/wellness/places");
-        if (!response.ok) throw new Error(`Failed to load places: ${response.status}`);
-        const data = (await response.json()) as TourPlacesResponse;
-        if (canceled) return;
-        if (Array.isArray(data.places) && data.places.length > 0) {
-          setPlaces(data.places);
-        }
-        setTourDataSource(data.source ?? "fallback");
-      } catch (error) {
-        console.error(error);
-        if (!canceled) setTourDataSource("fallback");
+  const refreshTourPlaces = useCallback(async () => {
+    setIsRefreshingPlaces(true);
+    try {
+      const response = await fetch("/api/wellness/places", { cache: "no-store" });
+      if (!response.ok) throw new Error(`Failed to load places: ${response.status}`);
+      const data = (await response.json()) as TourPlacesResponse;
+      if (Array.isArray(data.places) && data.places.length > 0) {
+        setPlaces(data.places);
+        cachePlaceList(data.places, data.source ?? "fallback");
       }
+      setTourDataSource(data.source ?? "fallback");
+    } catch (error) {
+      console.error(error);
+      setTourDataSource("fallback");
+    } finally {
+      setIsRefreshingPlaces(false);
     }
-
-    loadTourPlaces();
-
-    return () => {
-      canceled = true;
-    };
   }, []);
+
+  useEffect(() => {
+    const cached = getCachedPlaceList<Place>();
+    if (cached) {
+      void Promise.resolve().then(() => {
+        setPlaces(cached.places);
+        setTourDataSource(cached.source);
+      });
+      if (!cached.isCurrent) void Promise.resolve().then(refreshTourPlaces);
+      return;
+    }
+    void Promise.resolve().then(refreshTourPlaces);
+  }, [refreshTourPlaces]);
 
   useEffect(() => {
     if (!viewingPlace) return;
@@ -772,8 +781,17 @@ export default function Home() {
               <p className="text-xs font-bold opacity-70" style={{ color: GW_BLUE }}>
                 강원도의 청정 힐링 공간을 만나보세요
               </p>
-              <div className="mt-3">
+              <div className="mt-3 flex items-center gap-2">
                 <TourDataStatusBadge source={tourDataSource} />
+                <button
+                  type="button"
+                  onClick={() => void refreshTourPlaces()}
+                  disabled={isRefreshingPlaces}
+                  className="glass-button inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-[10px] font-black text-slate-600 disabled:opacity-60"
+                >
+                  <RefreshCw size={13} className={isRefreshingPlaces ? "animate-spin" : ""} />
+                  목록 새로고침
+                </button>
               </div>
             </div>
 

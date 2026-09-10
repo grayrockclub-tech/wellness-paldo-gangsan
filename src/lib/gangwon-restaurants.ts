@@ -104,7 +104,7 @@ async function fetchGangwonRestaurantRows() {
 }
 
 async function fetchRestaurantPage(serviceKey: string, page: number) {
-  const { data } = await getCached(`gangwon-restaurants:v2:${page}`, RESTAURANT_CACHE_SECONDS, async () => {
+  const { data } = await getCached(`gangwon-restaurants:v2:${getKoreanDateKey()}:${page}`, RESTAURANT_CACHE_SECONDS, async () => {
     const url = new URL(`${GANGWON_RESTAURANT_API_BASE_URL}${RESTAURANT_DATASET_PATH}`);
     url.searchParams.set("serviceKey", serviceKey);
     url.searchParams.set("page", String(page));
@@ -124,6 +124,17 @@ async function fetchRestaurantPage(serviceKey: string, page: number) {
   });
 
   return data;
+}
+
+function getKoreanDateKey() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
 function getRestaurantPages(totalPages: number) {

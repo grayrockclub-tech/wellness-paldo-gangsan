@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { buildWellnessCourse, type PlaceCourseItem as BuiltPlaceCourseItem, type WellnessCourseItem } from "@/lib/course-builder";
 import type { TransitOrigin, TransitRoute } from "@/lib/kakao-transit";
+import { getKakaoDrivingRouteUrl, getKakaoMapSearchUrl } from "@/lib/kakao-map-links";
 import { cachePlaceList, getCachedPlaceList } from "@/lib/place-list-cache";
 import {
   BedDouble,
@@ -474,9 +475,15 @@ export default function Home() {
     setActiveTab("login");
   };
 
-  const handleKakaoNavi = (destination: Pick<Place, "name" | "lat" | "lng">) => {
-    const url = `https://map.kakao.com/link/to/${encodeURIComponent(destination.name)},${destination.lat},${destination.lng}`;
-    window.open(url, "_blank", "noopener,noreferrer");
+  const handleKakaoMapSearch = (destinationName: string) => {
+    window.open(getKakaoMapSearchUrl(destinationName), "_blank", "noopener,noreferrer");
+  };
+
+  const getDrivingRouteUrl = (travelIndex: number) => {
+    if (!generatedCourse) return null;
+    const from = [...generatedCourse.slice(0, travelIndex)].reverse().find(isPlaceCourseItem);
+    const to = generatedCourse.slice(travelIndex + 1).find(isPlaceCourseItem);
+    return from && to ? getKakaoDrivingRouteUrl(from, to) : null;
   };
 
   const filteredPlaces = useMemo(() => {
@@ -1081,8 +1088,8 @@ export default function Home() {
                               </span>
                             )}
                             {travelMode === "drive" && (
-                              <span onClick={(event) => { event.stopPropagation(); handleKakaoNavi(item); }} className="flex shrink-0 items-center rounded-lg px-3 py-1.5 text-[9px] font-bold text-white shadow-sm active:scale-95" style={{ backgroundColor: GW_BLUE }}>
-                                <Navigation size={10} className="mr-1" /> 카카오맵 길안내
+                              <span onClick={(event) => { event.stopPropagation(); handleKakaoMapSearch(item.name); }} className="flex shrink-0 items-center rounded-lg px-3 py-1.5 text-[9px] font-bold text-white shadow-sm active:scale-95" style={{ backgroundColor: GW_BLUE }}>
+                                <Navigation size={10} className="mr-1" /> 카카오맵
                               </span>
                             )}
                           </div>
@@ -1116,6 +1123,7 @@ export default function Home() {
                           {item.travelType === "walk" && transitLegs[generatedCourse.slice(0, index).filter((courseItem) => courseItem.type === "travel").length]?.status === "ready" ? (
                             <span>대중교통 {transitLegs[generatedCourse.slice(0, index).filter((courseItem) => courseItem.type === "travel").length]?.durationMinutes}분</span>
                           ) : <span>이동 약 {item.duration}분 예상</span>}
+                          {item.travelType === "drive" && getDrivingRouteUrl(index) && <a href={getDrivingRouteUrl(index) ?? undefined} target="_blank" rel="noreferrer" className="rounded-lg bg-[#005BAA] px-2 py-1 text-[9px] text-white">자동차 길찾기</a>}
                         </div>
                         {item.travelType === "walk" && <TransitRouteInfo route={transitLegs[generatedCourse.slice(0, index).filter((courseItem) => courseItem.type === "travel").length]} compact />}
                       </div>

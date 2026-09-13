@@ -28,6 +28,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildWellnessCourse, type PlaceCourseItem as BuiltPlaceCourseItem, type WellnessCourseItem } from "@/lib/course-builder";
 import type { TransitOrigin, TransitRoute } from "@/lib/kakao-transit";
+import { getKakaoDrivingRouteUrl, getKakaoMapSearchUrl } from "@/lib/kakao-map-links";
 import { cachePlaceList, getCachedPlaceList } from "@/lib/place-list-cache";
 
 const GW_GREEN = "#0DB14B";
@@ -48,9 +49,8 @@ function combineDepartureDateTime(date: string, time: string) {
   return `${date}T${time}`;
 }
 
-function openKakaoNavigation(destination: Pick<Place, "name" | "lat" | "lng">) {
-  const url = `https://map.kakao.com/link/to/${encodeURIComponent(destination.name)},${destination.lat},${destination.lng}`;
-  window.open(url, "_blank", "noopener,noreferrer");
+function openKakaoMapSearch(destinationName: string) {
+  window.open(getKakaoMapSearchUrl(destinationName), "_blank", "noopener,noreferrer");
 }
 
 function initialDepartureClock() {
@@ -772,7 +772,7 @@ export default function DesktopPage() {
                       <DesktopTransitRoute route={originTransit ?? undefined} fallbackDuration={0} />
                     </section>
                   )}
-                  <Timeline course={generatedCourse} travelMode={travelMode} weatherByPlaceId={weatherByPlaceId} transitLegs={transitLegs} planMode={planMode} mustGoSpots={mustGoSpots} onMoveSelectedPlace={moveSelectedPlace} onNavigate={openKakaoNavigation} />
+                  <Timeline course={generatedCourse} travelMode={travelMode} weatherByPlaceId={weatherByPlaceId} transitLegs={transitLegs} planMode={planMode} mustGoSpots={mustGoSpots} onMoveSelectedPlace={moveSelectedPlace} onNavigate={openKakaoMapSearch} />
                 </div>
               ) : (
                 <div className="flex min-h-[260px] flex-col items-center justify-center rounded-lg bg-[#f4f7f3] px-6 text-center">
@@ -1224,7 +1224,7 @@ function Timeline({
   planMode: PlanMode;
   mustGoSpots: string[];
   onMoveSelectedPlace: (placeId: string, direction: -1 | 1) => void;
-  onNavigate: (destination: Pick<Place, "name" | "lat" | "lng">) => void;
+  onNavigate: (destinationName: string) => void;
 }) {
   return (
     <div className="space-y-4">
@@ -1232,7 +1232,7 @@ function Timeline({
         item.type === "travel" ? (
           <div key={`travel-${index}`} className="ml-5 flex items-center gap-2 rounded-lg border border-dashed border-[#cbd9ce] bg-[#f7faf6] px-3 py-2 text-xs font-bold text-[#526158]">
             {item.travelType === "walk" ? <Bus size={15} style={{ color: GW_GREEN }} /> : <Car size={15} style={{ color: GW_BLUE }} />}
-            {item.travelType === "walk" ? <DesktopTransitRoute route={transitLegs[course.slice(0, index).filter((courseItem) => courseItem.type === "travel").length]} fallbackDuration={item.duration} /> : <>이동 약 {item.duration}분</>}
+            {item.travelType === "walk" ? <DesktopTransitRoute route={transitLegs[course.slice(0, index).filter((courseItem) => courseItem.type === "travel").length]} fallbackDuration={item.duration} /> : <DrivingRouteInfo course={course} travelIndex={index} fallbackDuration={item.duration} />}
           </div>
         ) : (
           <article key={`${item.id}-${index}`} className="relative rounded-lg border border-[#dce6dc] bg-[#fbfcf8] p-4">
@@ -1247,9 +1247,9 @@ function Timeline({
                 </span>
               )}
               {travelMode === "drive" && (
-                <button onClick={() => onNavigate(item)} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-black text-white" style={{ backgroundColor: GW_BLUE }}>
+                <button onClick={() => onNavigate(item.name)} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-black text-white" style={{ backgroundColor: GW_BLUE }}>
                   <Navigation size={12} />
-                  카카오맵 길안내
+                  카카오맵
                 </button>
               )}
             </div>
@@ -1276,6 +1276,13 @@ function Timeline({
       )}
     </div>
   );
+}
+
+function DrivingRouteInfo({ course, travelIndex, fallbackDuration }: { course: CourseItem[]; travelIndex: number; fallbackDuration: number }) {
+  const from = [...course.slice(0, travelIndex)].reverse().find(isPlaceCourseItem);
+  const to = course.slice(travelIndex + 1).find(isPlaceCourseItem);
+  if (!from || !to) return <>이동 약 {fallbackDuration}분</>;
+  return <><span>이동 약 {fallbackDuration}분</span><a href={getKakaoDrivingRouteUrl(from, to)} target="_blank" rel="noreferrer" className="ml-2 text-[#005BAA] underline">자동차 길찾기</a></>;
 }
 
 function DesktopTransitRoute({ route, fallbackDuration }: { route?: TransitRoute; fallbackDuration: number }) {

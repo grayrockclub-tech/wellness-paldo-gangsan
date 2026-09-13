@@ -48,6 +48,11 @@ function combineDepartureDateTime(date: string, time: string) {
   return `${date}T${time}`;
 }
 
+function openKakaoNavigation(destination: Pick<Place, "name" | "lat" | "lng">) {
+  const url = `https://map.kakao.com/link/to/${encodeURIComponent(destination.name)},${destination.lat},${destination.lng}`;
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
 function initialDepartureClock() {
   const [hour, minute] = currentLocalDateTime().slice(11, 16).split(":").map(Number);
   return `${String(hour).padStart(2, "0")}:${minute < 30 ? "00" : "30"}`;
@@ -767,7 +772,7 @@ export default function DesktopPage() {
                       <DesktopTransitRoute route={originTransit ?? undefined} fallbackDuration={0} />
                     </section>
                   )}
-                  <Timeline course={generatedCourse} travelMode={travelMode} weatherByPlaceId={weatherByPlaceId} transitLegs={transitLegs} planMode={planMode} mustGoSpots={mustGoSpots} onMoveSelectedPlace={moveSelectedPlace} />
+                  <Timeline course={generatedCourse} travelMode={travelMode} weatherByPlaceId={weatherByPlaceId} transitLegs={transitLegs} planMode={planMode} mustGoSpots={mustGoSpots} onMoveSelectedPlace={moveSelectedPlace} onNavigate={openKakaoNavigation} />
                 </div>
               ) : (
                 <div className="flex min-h-[260px] flex-col items-center justify-center rounded-lg bg-[#f4f7f3] px-6 text-center">
@@ -1210,6 +1215,7 @@ function Timeline({
   planMode,
   mustGoSpots,
   onMoveSelectedPlace,
+  onNavigate,
 }: {
   course: CourseItem[];
   travelMode: TravelMode;
@@ -1218,6 +1224,7 @@ function Timeline({
   planMode: PlanMode;
   mustGoSpots: string[];
   onMoveSelectedPlace: (placeId: string, direction: -1 | 1) => void;
+  onNavigate: (destination: Pick<Place, "name" | "lat" | "lng">) => void;
 }) {
   return (
     <div className="space-y-4">
@@ -1240,9 +1247,9 @@ function Timeline({
                 </span>
               )}
               {travelMode === "drive" && (
-                <button className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-black text-white" style={{ backgroundColor: GW_BLUE }}>
+                <button onClick={() => onNavigate(item)} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-black text-white" style={{ backgroundColor: GW_BLUE }}>
                   <Navigation size={12} />
-                  길안내
+                  카카오맵 길안내
                 </button>
               )}
             </div>

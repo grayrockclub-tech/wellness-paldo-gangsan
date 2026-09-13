@@ -474,8 +474,9 @@ export default function Home() {
     setActiveTab("login");
   };
 
-  const handleKakaoNavi = (destinationName: string) => {
-    alert(`[카카오내비] '${destinationName}'(으)로 안내를 시작합니다.\n(실제 환경에서 내비 앱이 실행됩니다.)`);
+  const handleKakaoNavi = (destination: Pick<Place, "name" | "lat" | "lng">) => {
+    const url = `https://map.kakao.com/link/to/${encodeURIComponent(destination.name)},${destination.lat},${destination.lng}`;
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   const filteredPlaces = useMemo(() => {
@@ -1080,8 +1081,8 @@ export default function Home() {
                               </span>
                             )}
                             {travelMode === "drive" && (
-                              <span onClick={(event) => { event.stopPropagation(); handleKakaoNavi(item.name); }} className="flex shrink-0 items-center rounded-lg px-3 py-1.5 text-[9px] font-bold text-white shadow-sm active:scale-95" style={{ backgroundColor: GW_BLUE }}>
-                                <Navigation size={10} className="mr-1" /> 길안내
+                              <span onClick={(event) => { event.stopPropagation(); handleKakaoNavi(item); }} className="flex shrink-0 items-center rounded-lg px-3 py-1.5 text-[9px] font-bold text-white shadow-sm active:scale-95" style={{ backgroundColor: GW_BLUE }}>
+                                <Navigation size={10} className="mr-1" /> 카카오맵 길안내
                               </span>
                             )}
                           </div>

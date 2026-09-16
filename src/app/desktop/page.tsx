@@ -181,6 +181,12 @@ const PLACES: Place[] = [
   { id: "stay-4", region: "강릉", category: "stay", subCategory: "hotel", name: "씨마크 호텔", addr: "강원도 강릉시 해안로406번길 2", desc: "바다를 품은 인피니티 풀과 최고급 시설을 갖춘 해안 럭셔리 호텔.", score: 4.9, lat: 37.8, lng: 128.92 },
 ];
 
+function getRandomWellnessSpot(placeItems: Place[]) {
+  const spots = placeItems.filter((place) => place.category === "spot");
+  const candidates = spots.length > 0 ? spots : placeItems;
+  return candidates[Math.floor(Math.random() * candidates.length)] ?? PLACES[0];
+}
+
 const subCategoryMap: Record<PlaceCategory, SubCategoryFilter[]> = {
   spot: ["전체", "forest", "yoga", "meditation"],
   food: ["전체", "healthy", "local"],
@@ -294,7 +300,7 @@ export default function DesktopPage() {
   const [subCategoryFilter, setSubCategoryFilter] = useState<SubCategoryFilter>("전체");
   const [regionFilter, setRegionFilter] = useState("전체");
   const [mustGoSpots, setMustGoSpots] = useState<string[]>([]);
-  const [selectedPlace, setSelectedPlace] = useState<Place>(PLACES[0]);
+  const [selectedPlace, setSelectedPlace] = useState<Place>(() => getRandomWellnessSpot(PLACES));
   const [imagePlace, setImagePlace] = useState<Place | null>(null);
   const [places, setPlaces] = useState<Place[]>(PLACES);
   const [tourDataSource, setTourDataSource] = useState<"loading" | "tourapi" | "mixed" | "fallback">("loading");
@@ -324,7 +330,7 @@ export default function DesktopPage() {
       const data = (await response.json()) as TourPlacesResponse;
       if (Array.isArray(data.places) && data.places.length > 0) {
         setPlaces(data.places);
-        setSelectedPlace(data.places[0]);
+        setSelectedPlace(getRandomWellnessSpot(data.places));
         setMustGoSpots([]);
         setGeneratedCourse(null);
         cachePlaceList(data.places, data.source ?? "fallback");
@@ -343,7 +349,7 @@ export default function DesktopPage() {
     if (cached) {
       void Promise.resolve().then(() => {
         setPlaces(cached.places);
-        setSelectedPlace(cached.places[0]);
+        setSelectedPlace(getRandomWellnessSpot(cached.places));
         setTourDataSource(cached.source);
       });
       if (!cached.isCurrent) void Promise.resolve().then(refreshTourPlaces);
@@ -396,7 +402,7 @@ export default function DesktopPage() {
     mainCategoryFilter === "all" ? ["전체"] : subCategoryMap[mainCategoryFilter];
   const regionOptions = useMemo(() => ["전체", ...Array.from(new Set(places.filter((place) => mainCategoryFilter === "all" || place.category === mainCategoryFilter).map((place) => place.region))).sort((a, b) => REGION_ORDER.indexOf(a) - REGION_ORDER.indexOf(b))], [mainCategoryFilter, places]);
 
-  const selectedMustGoPlaces = places.filter((place) => mustGoSpots.includes(place.id));
+  const selectedMustGoPlaces = mustGoSpots.map((id) => places.find((place) => place.id === id)).filter((place): place is Place => Boolean(place));
   const generatedCourseEvidence = useMemo(() => {
     return generatedCourse ? buildCourseEvidence(generatedCourse, travelMode, weatherByPlaceId) : [];
   }, [generatedCourse, travelMode, weatherByPlaceId]);
@@ -646,7 +652,7 @@ export default function DesktopPage() {
         <section className="grid min-h-[calc(100vh-136px)] grid-cols-[minmax(0,1.15fr)_minmax(420px,0.85fr)] gap-5 p-6">
           <div className="grid min-h-0 grid-rows-[minmax(520px,calc(100vh-202px))]">
             <section className="grid min-h-0 grid-cols-[minmax(0,1fr)_380px] gap-5">
-              <KakaoMapPanel selectedPlace={selectedPlace} generatedCourse={generatedCourse} onSelectPlace={setSelectedPlace} />
+              <KakaoMapPanel selectedPlace={selectedPlace} selectedPlaces={selectedMustGoPlaces} generatedCourse={generatedCourse} onSelectPlace={setSelectedPlace} />
 
               <PlaceDetailPanel
                 place={selectedPlace}
@@ -831,15 +837,17 @@ export default function DesktopPage() {
 
 function KakaoMapPanel({
   selectedPlace,
+  selectedPlaces,
   generatedCourse,
   onSelectPlace,
 }: {
   selectedPlace: Place;
+  selectedPlaces: Place[];
   generatedCourse: CourseItem[] | null;
   onSelectPlace: (place: Place) => void;
 }) {
   const generatedPlaces = useMemo(() => generatedCourse?.filter(isPlaceCourseItem) ?? null, [generatedCourse]);
-  const places = useMemo(() => generatedPlaces ?? [selectedPlace], [generatedPlaces, selectedPlace]);
+  const places = useMemo(() => generatedPlaces ?? (selectedPlaces.length > 0 ? selectedPlaces : [selectedPlace]), [generatedPlaces, selectedPlace, selectedPlaces]);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<KakaoMapInstance | null>(null);
   const markersRef = useRef<KakaoMapOverlay[]>([]);
@@ -1131,7 +1139,7 @@ function PlaceDetailPanel({
         </button>
       </div>
       <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="flex min-h-[220px] flex-1 flex-col rounded-lg bg-[#f7faf6] px-4 py-3">
+        <div className="flex h-[200px] shrink-0 flex-col rounded-lg bg-[#f7faf6] px-4 py-3">
           <p className="shrink-0 text-[11px] font-black text-[#66756c]">장소 설명</p>
           <div className="mt-2 min-h-0 flex-1 overflow-y-auto pb-3 pr-3">
             <p className="text-sm leading-6 text-[#526158]">{place.desc}</p>

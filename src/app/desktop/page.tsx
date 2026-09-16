@@ -380,6 +380,7 @@ export default function DesktopPage() {
   const regionOptions = useMemo(() => ["전체", ...Array.from(new Set(places.filter((place) => mainCategoryFilter === "all" || place.category === mainCategoryFilter).map((place) => place.region))).sort((a, b) => REGION_ORDER.indexOf(a) - REGION_ORDER.indexOf(b))], [mainCategoryFilter, places]);
 
   const selectedMustGoPlaces = mustGoSpots.map((id) => places.find((place) => place.id === id)).filter((place): place is Place => Boolean(place));
+  const firstCoursePlace = generatedCourse?.find(isPlaceCourseItem);
   useEffect(() => {
     placeCardRefs.current[selectedPlace.id]?.scrollIntoView({
       behavior: "smooth",
@@ -799,13 +800,20 @@ export default function DesktopPage() {
               {generatedCourse ? (
                 <div className="space-y-4">
                   {travelMode === "walk" && transitOrigin && (
-                    <section className="rounded-lg border border-dashed border-[#cbd9ce] bg-[#f7faf6] px-3 py-3 text-xs font-bold text-[#526158]">
-                      <p className="mb-1 text-[11px] font-black text-[#087a36]">출발지 → 첫 일정</p>
-                      <p className="mb-2">{transitOrigin.name}에서 대중교통으로 출발</p>
-                      <DesktopTransitRoute route={originTransit ?? undefined} fallbackDuration={0} />
-                    </section>
+                    <>
+                      <article className="rounded-lg border border-[#bde7c8] bg-[#f1fbf4] p-4">
+                        <span className="rounded-md bg-white px-2 py-1 text-[11px] font-black" style={{ color: GW_BLUE }}>{departureClock} 출발</span>
+                        <h4 className="mt-3 text-sm font-black leading-5">{transitOrigin.name}</h4>
+                        <p className="mt-2 text-xs font-bold text-[#087a36]">대중교통 출발지</p>
+                      </article>
+                      <div className="ml-5 flex items-center gap-2 rounded-lg border border-dashed border-[#cbd9ce] bg-[#f7faf6] px-3 py-2 text-xs font-bold text-[#526158]">
+                        <Bus size={15} style={{ color: GW_GREEN }} />
+                        <span className="shrink-0">{firstCoursePlace ? `${transitOrigin.name} → ${firstCoursePlace.name}` : "첫 일정까지"}</span>
+                        <DesktopTransitRoute route={originTransit ?? undefined} fallbackDuration={0} />
+                      </div>
+                    </>
                   )}
-                  <Timeline course={generatedCourse} travelMode={travelMode} weatherByPlaceId={weatherByPlaceId} transitLegs={transitLegs} planMode={planMode} mustGoSpots={mustGoSpots} onMoveSelectedPlace={moveSelectedPlace} onNavigate={openKakaoMapSearch} />
+                  <Timeline course={generatedCourse} travelMode={travelMode} weatherByPlaceId={weatherByPlaceId} transitLegs={transitLegs} planMode={planMode} mustGoSpots={mustGoSpots} timeOffsetMinutes={travelMode === "walk" && originTransit?.status === "ready" ? originTransit.durationMinutes ?? 0 : 0} onMoveSelectedPlace={moveSelectedPlace} onNavigate={openKakaoMapSearch} />
                 </div>
               ) : (
                 <div className="flex min-h-[260px] flex-col items-center justify-center rounded-lg bg-[#f4f7f3] px-6 text-center">
@@ -1278,6 +1286,7 @@ function Timeline({
   transitLegs,
   planMode,
   mustGoSpots,
+  timeOffsetMinutes,
   onMoveSelectedPlace,
   onNavigate,
 }: {
@@ -1287,6 +1296,7 @@ function Timeline({
   transitLegs: Record<number, TransitRoute>;
   planMode: PlanMode;
   mustGoSpots: string[];
+  timeOffsetMinutes: number;
   onMoveSelectedPlace: (placeId: string, direction: -1 | 1) => void;
   onNavigate: (destinationName: string) => void;
 }) {
@@ -1302,7 +1312,7 @@ function Timeline({
           <article key={`${item.id}-${index}`} className="relative rounded-lg border border-[#dce6dc] bg-[#fbfcf8] p-4">
             <div className="flex items-center justify-between gap-3">
               <span className="rounded-md bg-white px-2 py-1 text-[11px] font-black" style={{ color: GW_BLUE }}>
-                {item.timeRange}
+                {shiftTimeRange(item.timeRange, timeOffsetMinutes)}
               </span>
               {planMode === "selected-only" && mustGoSpots.includes(item.id) && (
                 <span className="flex items-center gap-1">
@@ -1327,6 +1337,14 @@ function Timeline({
       )}
     </div>
   );
+}
+
+function shiftTimeRange(timeRange: string, offsetMinutes: number) {
+  if (offsetMinutes === 0) return timeRange;
+  return timeRange.replace(/(\d{2}):(\d{2})/g, (_match, hour: string, minute: string) => {
+    const totalMinutes = (Number(hour) * 60 + Number(minute) + offsetMinutes) % (24 * 60);
+    return `${String(Math.floor(totalMinutes / 60)).padStart(2, "0")}:${String(totalMinutes % 60).padStart(2, "0")}`;
+  });
 }
 
 function DrivingRouteInfo({ course, travelIndex, fallbackDuration }: { course: CourseItem[]; travelIndex: number; fallbackDuration: number }) {

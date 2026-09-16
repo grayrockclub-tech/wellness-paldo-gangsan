@@ -308,6 +308,7 @@ export default function Home() {
   const [regionFilter, setRegionFilter] = useState("전체");
   const [mustGoSpots, setMustGoSpots] = useState<string[]>([]);
   const [viewingPlace, setViewingPlace] = useState<Place | null>(null);
+  const [imagePlace, setImagePlace] = useState<Place | null>(null);
   const [travelMode, setTravelMode] = useState<TravelMode>("walk");
   const [planMode, setPlanMode] = useState<PlanMode>("auto");
   const [routeTheme, setRouteTheme] = useState<Exclude<PlanTheme, "auto">>("forest");
@@ -438,7 +439,16 @@ export default function Home() {
   }, [viewingPlace]);
 
   useEffect(() => {
-    if (!viewingPlace) return;
+    if (!imagePlace) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setImagePlace(null);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [imagePlace]);
+
+  useEffect(() => {
+    if (!viewingPlace && !imagePlace) return;
 
     const scrollY = window.scrollY;
     const bodyStyle = document.body.style;
@@ -465,7 +475,7 @@ export default function Home() {
       htmlStyle.overflow = previous.htmlOverflow;
       window.scrollTo(0, scrollY);
     };
-  }, [viewingPlace]);
+  }, [imagePlace, viewingPlace]);
 
   const handleKakaoLogin = () => {
     router.push("/api/auth/kakao/start");
@@ -867,9 +877,20 @@ export default function Home() {
               {filteredPlaces.map((place) => (
                 <div key={place.id} onClick={() => setViewingPlace(place)} className="glass-panel group relative cursor-pointer rounded-[2rem] p-5 transition-all hover:border-white">
                   <div className="flex min-w-0 items-start space-x-4">
-                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white/60 shadow-[inset_0_2px_5px_rgba(255,255,255,0.8)]" style={{ color: GW_GREEN }}>
-                      {place.category === "food" ? <Utensils size={24} /> : place.category === "stay" ? <BedDouble size={24} /> : <Leaf size={24} />}
-                    </div>
+                    {place.image ? (
+                      <button
+                        type="button"
+                        onClick={(event) => { event.stopPropagation(); setImagePlace(place); }}
+                        className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl shadow-[inset_0_2px_5px_rgba(255,255,255,0.8)]"
+                        aria-label={`${place.name} 대표 이미지 확대`}
+                      >
+                        <img src={place.image} alt="" className="h-full w-full object-cover" />
+                      </button>
+                    ) : (
+                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white/60 shadow-[inset_0_2px_5px_rgba(255,255,255,0.8)]" style={{ color: GW_GREEN }}>
+                        {place.category === "food" ? <Utensils size={24} /> : place.category === "stay" ? <BedDouble size={24} /> : <Leaf size={24} />}
+                      </div>
+                    )}
                     <div className="min-w-0 flex-1 pr-8">
                       <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
                         <span className="shrink-0 whitespace-nowrap rounded-md border border-white/50 bg-white/60 px-2 py-0.5 text-[9px] font-black" style={{ color: GW_BLUE }}>
@@ -1235,6 +1256,18 @@ export default function Home() {
           </div>
         )}
       </main>
+
+      {imagePlace && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 p-5" onClick={() => setImagePlace(null)}>
+          <div className="relative max-h-full max-w-full" onClick={(event) => event.stopPropagation()}>
+            <img src={imagePlace.image} alt={`${imagePlace.name} 대표 이미지`} className="max-h-[78dvh] max-w-full rounded-3xl object-contain shadow-2xl" />
+            <div className="mt-3 flex items-center justify-between gap-3 text-white">
+              <p className="min-w-0 truncate text-sm font-black">{imagePlace.name}</p>
+              <button onClick={() => setImagePlace(null)} className="shrink-0 rounded-xl bg-white px-3 py-2 text-xs font-black text-slate-800">닫기</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {viewingPlace && (
         <div className="fixed inset-0 z-[100] flex touch-none items-center justify-center overflow-hidden bg-slate-900/20 p-4 backdrop-blur-sm">

@@ -651,6 +651,17 @@ export default function DesktopPage() {
                   </select>
                 </label>
                 <span className="rounded-lg bg-[#ebf8ef] px-3 py-2 text-xs font-black text-[#087a36]">{filteredPlaces.length}개</span>
+                <button
+                  onClick={() => {
+                    setMainCategoryFilter("all");
+                    setSubCategoryFilter("전체");
+                    setRegionFilter("전체");
+                  }}
+                  className="flex items-center gap-1 rounded-lg border border-[#d3dfd4] bg-white px-3 py-2 text-xs font-black text-[#526158] hover:bg-[#f7faf6]"
+                >
+                  <RefreshCw size={13} />
+                  초기화
+                </button>
               </div>
             </div>
             <div className="grid max-h-[calc(100vh-228px)] min-h-[520px] grid-cols-2 gap-3 overflow-auto p-4">

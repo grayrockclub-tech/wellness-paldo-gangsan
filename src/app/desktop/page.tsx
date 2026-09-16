@@ -73,7 +73,7 @@ type SubCategoryFilter =
   | "healing"
   | "hotel";
 type TravelMode = "walk" | "drive";
-type PlanMode = "auto" | "selected-only" | "selected-with-recommendations";
+type PlanMode = "selected-only" | "selected-with-recommendations";
 type PlanTheme = "food" | "forest" | "mindfulness" | "spa" | "temple" | "auto";
 
 type Place = {
@@ -284,9 +284,8 @@ export default function DesktopPage() {
   const [tourDataSource, setTourDataSource] = useState<"loading" | "tourapi" | "mixed" | "fallback">("loading");
   const [isRefreshingPlaces, setIsRefreshingPlaces] = useState(false);
   const [travelMode, setTravelMode] = useState<TravelMode>("walk");
-  const [planMode, setPlanMode] = useState<PlanMode>("auto");
-  const [routeTheme, setRouteTheme] = useState<Exclude<PlanTheme, "auto">>("forest");
-  const [recommendationTheme, setRecommendationTheme] = useState<PlanTheme>("auto");
+  const [planMode, setPlanMode] = useState<PlanMode>("selected-with-recommendations");
+  const [recommendationTheme, setRecommendationTheme] = useState<Exclude<PlanTheme, "auto">>("forest");
   const [transitOrigin, setTransitOrigin] = useState<TransitOrigin | null>(null);
   const [originQuery, setOriginQuery] = useState("");
   const [departureDate, setDepartureDate] = useState(() => currentLocalDateTime().slice(0, 10));
@@ -399,6 +398,9 @@ export default function DesktopPage() {
   }, [imagePlace]);
 
   const toggleMustGoSpot = (id: string) => {
+    if (mustGoSpots.length === 1 && mustGoSpots.includes(id) && planMode === "selected-only") {
+      setPlanMode("selected-with-recommendations");
+    }
     setMustGoSpots((prev) => {
       if (prev.includes(id)) return prev.filter((placeId) => placeId !== id);
       if (prev.length >= 5) {
@@ -486,7 +488,7 @@ export default function DesktopPage() {
         places,
         mustGoIds: mustGoSpots,
         planMode,
-        theme: planMode === "auto" ? routeTheme : recommendationTheme,
+        theme: recommendationTheme,
         travelMode,
         startTime: combineDepartureDateTime(departureDate, departureClock),
         manualOrderIds: planMode === "selected-only" ? mustGoSpots : undefined,
@@ -713,31 +715,34 @@ export default function DesktopPage() {
               </div>
             </div>
 
-            <ControlGroup title="루트 구성">
-              <SegmentedControl
-                items={[
-                  { id: "auto", label: "자동선택" },
-                  { id: "selected-only", label: "직접선택" },
-                ]}
-                value={planMode}
-                onChange={(value) => setPlanMode(value as PlanMode)}
-              />
-            </ControlGroup>
-
-            {planMode === "auto" ? (
-              <ControlGroup title="원하는 테마">
-                <p className="mb-3 text-xs font-bold text-[#66756c]">테마에 맞는 스팟·맛집·숙소를 앱이 조합합니다.</p>
-                <div className="flex flex-wrap gap-2">
-                  {routeThemes.map((theme) => <ModeButton key={theme.id} active={routeTheme === theme.id} label={theme.label} onClick={() => setRouteTheme(theme.id)} icon={<Leaf size={15} />} />)}
+            <ControlGroup title={`선택한 장소 ${mustGoSpots.length}/5`}>
+              <p className="mb-3 text-xs font-bold text-[#66756c]">
+                {mustGoSpots.length === 0 ? "선택하지 않으면 테마를 기준으로 앱이 3~5곳을 추천합니다." : "탐색 화면에서 체크한 장소를 우선 반영합니다."}
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  disabled={mustGoSpots.length === 0}
+                  onClick={() => setPlanMode("selected-only")}
+                  className={`rounded-lg border px-3 py-3 text-xs font-black transition ${planMode === "selected-only" ? "border-[#0DB14B] bg-[#ebf8ef] text-[#087a36]" : "border-[#dce6dc] bg-white text-[#75837b]"} disabled:cursor-not-allowed disabled:opacity-45`}
+                >
+                  선택한 장소만
+                </button>
+                <button
+                  onClick={() => setPlanMode("selected-with-recommendations")}
+                  className={`rounded-lg border px-3 py-3 text-xs font-black transition ${planMode === "selected-with-recommendations" ? "border-[#005BAA] bg-[#eaf2ff] text-[#005BAA]" : "border-[#dce6dc] bg-white text-[#75837b]"}`}
+                >
+                  앱 추천 포함
+                </button>
+              </div>
+              {planMode === "selected-with-recommendations" && (
+                <div className="mt-4">
+                  <p className="mb-2 text-xs font-black">원하는 테마</p>
+                  <div className="flex flex-wrap gap-2">
+                    {routeThemes.map((theme) => <ModeButton key={theme.id} active={recommendationTheme === theme.id} label={theme.label} onClick={() => setRecommendationTheme(theme.id)} icon={<Leaf size={15} />} />)}
+                  </div>
                 </div>
-              </ControlGroup>
-            ) : (
-              <ControlGroup title={`선택한 장소 ${mustGoSpots.length}/5`}>
-                <p className="mb-3 text-xs font-bold text-[#66756c]">탐색 화면에서 체크한 장소를 기준으로 계획을 만듭니다.</p>
-                <SegmentedControl items={[{ id: "selected-only", label: "선택한 장소만" }, { id: "selected-with-recommendations", label: "앱 추천 포함" }]} value={planMode} onChange={(value) => setPlanMode(value as PlanMode)} />
-                {planMode === "selected-with-recommendations" && <div className="mt-4"><p className="mb-2 text-xs font-black">추천 테마 <span className="text-[#75837b]">(선택)</span></p><div className="flex flex-wrap gap-2"><ModeButton active={recommendationTheme === "auto"} label="선택한 장소 기준" onClick={() => setRecommendationTheme("auto")} icon={<Star size={15} />} />{routeThemes.map((theme) => <ModeButton key={theme.id} active={recommendationTheme === theme.id} label={theme.label} onClick={() => setRecommendationTheme(theme.id)} icon={<Leaf size={15} />} />)}</div></div>}
-              </ControlGroup>
-            )}
+              )}
+            </ControlGroup>
 
             <ControlGroup title="이동 수단">
               <div className="grid grid-cols-2 gap-2">
@@ -758,9 +763,9 @@ export default function DesktopPage() {
 
             <button
               onClick={generateCourse}
-              disabled={isPlanning || (planMode !== "auto" && mustGoSpots.length === 0)}
+              disabled={isPlanning}
               className="mt-5 flex w-full items-center justify-center rounded-lg px-4 py-4 text-sm font-black text-white shadow-sm disabled:bg-slate-300"
-              style={!isPlanning && !(planMode !== "auto" && mustGoSpots.length === 0) ? { backgroundColor: GW_BLUE } : {}}
+              style={!isPlanning ? { backgroundColor: GW_BLUE } : {}}
             >
               {isPlanning ? (
                 <>
@@ -1357,31 +1362,6 @@ function ControlGroup({ title, children }: { title: string; children: React.Reac
     <div className="mt-5">
       <p className="mb-2 text-xs font-black text-[#66756c]">{title}</p>
       {children}
-    </div>
-  );
-}
-
-function SegmentedControl({
-  items,
-  value,
-  onChange,
-}: {
-  items: { id: string; label: string }[];
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div className="grid grid-cols-2 rounded-lg border border-[#dce6dc] bg-[#f5f8f4] p-1">
-      {items.map((item) => (
-        <button
-          key={item.id}
-          onClick={() => onChange(item.id)}
-          className={`rounded-md px-3 py-2 text-xs font-black ${value === item.id ? "bg-white shadow-sm" : "text-[#66756c]"}`}
-          style={value === item.id ? { color: GW_BLUE } : {}}
-        >
-          {item.label}
-        </button>
-      ))}
     </div>
   );
 }

@@ -612,13 +612,6 @@ export default function DesktopPage() {
               ))}
             </div>
 
-            <label className="flex shrink-0 items-center gap-2 rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-3 py-2 text-xs font-black text-[#526158]">
-              지역
-              <select value={regionFilter} onChange={(event) => setRegionFilter(event.target.value)} className="bg-transparent font-bold outline-none">
-                {regionOptions.map((region) => <option key={region} value={region}>{region === "전체" ? "전체" : `${region} 지역`}</option>)}
-              </select>
-            </label>
-
             <div className="flex shrink-0 items-center gap-2 rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-3 py-2">
               <span className="text-xs font-black" style={{ color: GW_BLUE }}>꼭 가고 싶은 장소</span>
               <span className="rounded-md bg-[#ebf8ef] px-2 py-1 text-xs font-black text-[#087a36]">{mustGoSpots.length}/3</span>
@@ -660,7 +653,15 @@ export default function DesktopPage() {
                 <h3 className="text-lg font-black">장소 탐색</h3>
                 <p className="mt-1 text-xs font-bold text-[#66756c]">웰니스 스팟, 건강 맛집, 힐링 숙소를 함께 선택합니다.</p>
               </div>
-              <span className="rounded-lg bg-[#ebf8ef] px-3 py-2 text-xs font-black text-[#087a36]">{filteredPlaces.length}개</span>
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-2 rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-3 py-2 text-xs font-black text-[#526158]">
+                  지역
+                  <select value={regionFilter} onChange={(event) => setRegionFilter(event.target.value)} className="bg-transparent font-bold outline-none">
+                    {regionOptions.map((region) => <option key={region} value={region}>{region === "전체" ? "전체" : `${region} 지역`}</option>)}
+                  </select>
+                </label>
+                <span className="rounded-lg bg-[#ebf8ef] px-3 py-2 text-xs font-black text-[#087a36]">{filteredPlaces.length}개</span>
+              </div>
             </div>
             <div className="grid max-h-[calc(100vh-228px)] min-h-[520px] grid-cols-2 gap-3 overflow-auto p-4">
               {filteredPlaces.map((place) => (

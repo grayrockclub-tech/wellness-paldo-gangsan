@@ -1223,7 +1223,7 @@ function PlaceCard({
             </div>
           </button>
         </div>
-        <button onClick={onToggle} className={`rounded-lg p-2 ${mustGo ? "text-white" : "bg-white text-[#8a978f]"}`} style={mustGo ? { backgroundColor: GW_BLUE } : {}}>
+        <button onClick={() => { onOpen(); onToggle(); }} className={`rounded-lg p-2 ${mustGo ? "text-white" : "bg-white text-[#8a978f]"}`} style={mustGo ? { backgroundColor: GW_BLUE } : {}}>
           <CheckCircle2 size={18} />
         </button>
       </div>

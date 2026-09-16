@@ -272,29 +272,6 @@ function uniquePlaces<TPlace extends Pick<Place, "id">>(places: TPlace[]) {
   });
 }
 
-function buildCourseEvidence(course: CourseItem[], travelMode: TravelMode, weatherByPlaceId: Record<string, WeatherSummary>) {
-  const placeItems = course.filter(isPlaceCourseItem);
-  const travelMinutes = course.reduce((total, item) => item.type === "travel" ? total + item.duration : total, 0);
-  const weatherItems = placeItems.map((place) => weatherByPlaceId[place.id]).filter(Boolean);
-  const goodWeatherCount = weatherItems.filter((weather) => weather.activityLevel === "good").length;
-  const cautionWeatherCount = weatherItems.filter((weather) => weather.activityLevel === "caution").length;
-  const publicApiCount = placeItems.filter((place) => place.contentId || place.dataSource === "gangwon-restaurant").length;
-  const regionCount = new Set(placeItems.map((place) => place.region)).size;
-
-  return [
-    travelMode === "walk"
-      ? `대중교통 기준 이동 ${travelMinutes}분 이내로 동선을 압축`
-      : `자동차 기준 이동 ${travelMinutes}분 규모로 권역 연결`,
-    cautionWeatherCount > 0
-      ? `기상 부담 ${cautionWeatherCount}곳을 고려해 실내·회복형 장소 보강`
-      : goodWeatherCount > 0
-        ? `야외 적합 예보 ${goodWeatherCount}곳을 우선 반영`
-        : "기상 예보 확인값을 추천 점수에 반영",
-    `공공 API 장소 ${publicApiCount}/${placeItems.length}곳 기반`,
-    regionCount === 1 ? `${placeItems[0]?.region ?? "강원"} 권역 중심 일정` : `${regionCount}개 권역을 이동 부담 기준으로 정렬`,
-  ];
-}
-
 export default function DesktopPage() {
   const [mainCategoryFilter, setMainCategoryFilter] = useState<MainCategoryFilter>("all");
   const [subCategoryFilter, setSubCategoryFilter] = useState<SubCategoryFilter>("전체");
@@ -302,6 +279,7 @@ export default function DesktopPage() {
   const [mustGoSpots, setMustGoSpots] = useState<string[]>([]);
   const [selectedPlace, setSelectedPlace] = useState<Place>(() => getRandomWellnessSpot(PLACES));
   const [imagePlace, setImagePlace] = useState<Place | null>(null);
+  const [isRecommendationOpen, setIsRecommendationOpen] = useState(false);
   const [places, setPlaces] = useState<Place[]>(PLACES);
   const [tourDataSource, setTourDataSource] = useState<"loading" | "tourapi" | "mixed" | "fallback">("loading");
   const [isRefreshingPlaces, setIsRefreshingPlaces] = useState(false);
@@ -403,10 +381,6 @@ export default function DesktopPage() {
   const regionOptions = useMemo(() => ["전체", ...Array.from(new Set(places.filter((place) => mainCategoryFilter === "all" || place.category === mainCategoryFilter).map((place) => place.region))).sort((a, b) => REGION_ORDER.indexOf(a) - REGION_ORDER.indexOf(b))], [mainCategoryFilter, places]);
 
   const selectedMustGoPlaces = mustGoSpots.map((id) => places.find((place) => place.id === id)).filter((place): place is Place => Boolean(place));
-  const generatedCourseEvidence = useMemo(() => {
-    return generatedCourse ? buildCourseEvidence(generatedCourse, travelMode, weatherByPlaceId) : [];
-  }, [generatedCourse, travelMode, weatherByPlaceId]);
-
   useEffect(() => {
     placeCardRefs.current[selectedPlace.id]?.scrollIntoView({
       behavior: "smooth",
@@ -786,19 +760,23 @@ export default function DesktopPage() {
                 "원스톱 루트 생성하기"
               )}
             </button>
-          </section>
-
-          <section className="mt-5 rounded-lg border border-[#d3dfd4] bg-white">
-            <div className="flex items-center justify-between border-b border-[#e1e8df] px-5 py-4">
-              <h3 className="text-lg font-black">생성된 일정</h3>
-              <button className="rounded-lg border border-[#dce6dc] p-2 text-[#526158]" title="저장">
-                <Save size={16} />
-              </button>
-            </div>
-            <div className="max-h-[calc(100vh-558px)] min-h-[280px] overflow-auto p-5">
+            <section className="mt-5 border-t border-[#e1e8df] pt-5">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-lg font-black">생성된 일정</h3>
+                <div className="flex items-center gap-2">
+                  {generatedCourse && (
+                    <button onClick={() => setIsRecommendationOpen(true)} className="rounded-lg border border-[#bde7c8] bg-[#f1fbf4] px-3 py-2 text-xs font-black text-[#087a36]">
+                      추천 이유
+                    </button>
+                  )}
+                  <button className="rounded-lg border border-[#dce6dc] p-2 text-[#526158]" title="저장">
+                    <Save size={16} />
+                  </button>
+                </div>
+              </div>
+              <div className="mt-4">
               {generatedCourse ? (
                 <div className="space-y-4">
-                  <CourseEvidencePanel items={generatedCourseEvidence} />
                   {travelMode === "walk" && transitOrigin && (
                     <section className="rounded-lg border border-dashed border-[#cbd9ce] bg-[#f7faf6] px-3 py-3 text-xs font-bold text-[#526158]">
                       <p className="mb-1 text-[11px] font-black text-[#087a36]">출발지 → 첫 일정</p>
@@ -815,9 +793,34 @@ export default function DesktopPage() {
                   <p className="mt-2 text-xs leading-5 text-[#75837b]">계획 조건을 고른 뒤 원스톱 루트를 생성하세요.</p>
                 </div>
               )}
-            </div>
+              </div>
+            </section>
           </section>
         </aside>
+
+        {isRecommendationOpen && generatedCourse && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-6" onClick={() => setIsRecommendationOpen(false)}>
+            <section className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-black text-[#087a36]">원스톱 루트</p>
+                  <h3 className="mt-1 text-xl font-black text-[#17211b]">추천 이유</h3>
+                </div>
+                <button onClick={() => setIsRecommendationOpen(false)} className="rounded-lg border border-[#dce6dc] p-2 text-[#526158]" aria-label="추천 이유 닫기">
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="mt-5 space-y-3">
+                {generatedCourse.filter(isPlaceCourseItem).map((place, index) => (
+                  <article key={`${place.id}-${index}`} className="rounded-lg border border-[#cfe8d5] bg-[#f4fbf6] px-4 py-3">
+                    <p className="text-sm font-black text-[#17211b]">{index + 1}. {place.name}</p>
+                    <p className="mt-2 text-xs font-medium leading-5 text-[#526158]">{place.recommendationReason}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
 
         {imagePlace && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-6" onClick={() => setImagePlace(null)}>
@@ -1247,22 +1250,6 @@ function PlaceCard({
   );
 }
 
-function CourseEvidencePanel({ items }: { items: string[] }) {
-  return (
-    <section className="rounded-lg border border-[#cfe8d5] bg-[#f4fbf6] px-4 py-3">
-      <p className="text-[11px] font-black text-[#087a36]">추천 기준 요약</p>
-      <div className="mt-2 grid gap-2">
-        {items.map((item) => (
-          <p key={item} className="flex gap-2 text-xs font-bold leading-5 text-[#526158]">
-            <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-[#0DB14B]" />
-            <span>{item}</span>
-          </p>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 function Timeline({
   course,
   travelMode,
@@ -1314,19 +1301,6 @@ function Timeline({
               <p className="text-xs font-bold text-[#66756c]">{getCategoryLabel(item.category)} · {item.region}</p>
               <CourseWeatherPill weather={weatherByPlaceId[item.id]} />
             </div>
-            <div className="mt-3 rounded-lg bg-white px-3 py-2">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-black text-[#66756c]">장소 설명</span>
-              </div>
-              <p className="mt-2 line-clamp-2 text-xs font-medium leading-5 text-[#526158]">{item.desc}</p>
-            </div>
-            <p className="mt-2 rounded-lg border border-[#cfe8d5] bg-[#f4fbf6] px-3 py-2 text-xs font-bold leading-5 text-[#526158]">
-              <span className="mb-1 flex items-center justify-between text-[11px] font-black text-[#087a36]">
-                <span>추천 로직</span>
-                <span className="rounded-md bg-white/80 px-2 py-0.5 text-[10px]">기상·이동 반영</span>
-              </span>
-              {item.recommendationReason}
-            </p>
           </article>
         ),
       )}

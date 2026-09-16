@@ -1242,6 +1242,7 @@ function PlaceCard({
   return (
     <article
       ref={cardRef}
+      onClick={onOpen}
       className={`rounded-lg border bg-[#fbfcf8] p-4 transition ${selected ? "border-[#005BAA] shadow-sm" : "border-[#dce6dc] hover:border-[#9ebca7]"}`}
     >
       <div className="flex items-start justify-between gap-3">

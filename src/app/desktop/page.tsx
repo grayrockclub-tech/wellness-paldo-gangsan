@@ -33,6 +33,7 @@ import { cachePlaceList, getCachedPlaceList } from "@/lib/place-list-cache";
 
 const GW_GREEN = "#0DB14B";
 const GW_BLUE = "#005BAA";
+const REGION_ORDER = ["춘천", "원주", "강릉", "속초", "동해", "양양", "고성", "삼척", "영월", "인제", "정선", "철원", "평창", "홍천", "횡성", "태백", "양구", "화천"];
 const DEPARTURE_TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
   const hour = String(Math.floor(index / 2)).padStart(2, "0");
   const minute = index % 2 === 0 ? "00" : "30";
@@ -291,6 +292,7 @@ function buildCourseEvidence(course: CourseItem[], travelMode: TravelMode, weath
 export default function DesktopPage() {
   const [mainCategoryFilter, setMainCategoryFilter] = useState<MainCategoryFilter>("all");
   const [subCategoryFilter, setSubCategoryFilter] = useState<SubCategoryFilter>("전체");
+  const [regionFilter, setRegionFilter] = useState("전체");
   const [mustGoSpots, setMustGoSpots] = useState<string[]>([]);
   const [selectedPlace, setSelectedPlace] = useState<Place>(PLACES[0]);
   const [places, setPlaces] = useState<Place[]>(PLACES);
@@ -381,11 +383,17 @@ export default function DesktopPage() {
     return places.filter((place) => {
       const matchMain = mainCategoryFilter === "all" || place.category === mainCategoryFilter;
       const matchSub = subCategoryFilter === "전체" || place.subCategory === subCategoryFilter;
-      return matchMain && matchSub;
+      const matchRegion = regionFilter === "전체" || place.region === regionFilter;
+      return matchMain && matchSub && matchRegion;
+    }).sort((a, b) => {
+      const selectedDifference = Number(mustGoSpots.includes(b.id)) - Number(mustGoSpots.includes(a.id));
+      if (selectedDifference) return selectedDifference;
+      return REGION_ORDER.indexOf(a.region) - REGION_ORDER.indexOf(b.region) || a.name.localeCompare(b.name, "ko");
     });
-  }, [mainCategoryFilter, places, subCategoryFilter]);
+  }, [mainCategoryFilter, mustGoSpots, places, regionFilter, subCategoryFilter]);
   const subCategoryOptions: SubCategoryFilter[] =
     mainCategoryFilter === "all" ? ["전체"] : subCategoryMap[mainCategoryFilter];
+  const regionOptions = useMemo(() => ["전체", ...Array.from(new Set(places.filter((place) => mainCategoryFilter === "all" || place.category === mainCategoryFilter).map((place) => place.region))).sort((a, b) => REGION_ORDER.indexOf(a) - REGION_ORDER.indexOf(b))], [mainCategoryFilter, places]);
 
   const selectedMustGoPlaces = places.filter((place) => mustGoSpots.includes(place.id));
   const generatedCourseEvidence = useMemo(() => {
@@ -507,7 +515,7 @@ export default function DesktopPage() {
       <div className="mx-auto min-h-screen max-w-[1760px] bg-[#f7faf6]">
         <header className="sticky top-0 z-30 border-b border-[#d3dfd4] bg-white/95 px-6 py-4 backdrop-blur">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
+            <a href="https://wellness-paldo-gangsan.vercel.app" className="flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl text-white" style={{ backgroundColor: GW_BLUE }}>
                 <Leaf size={26} />
               </div>
@@ -517,7 +525,7 @@ export default function DesktopPage() {
                 </h1>
                 <p className="text-xs font-bold text-[#5f6f66]">원스톱 치유 여행</p>
               </div>
-            </div>
+            </a>
 
             <div className="flex items-center gap-3 text-sm">
               <Link href="/?view=mobile" className="rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 font-bold text-[#526158]">
@@ -576,6 +584,7 @@ export default function DesktopPage() {
                   onClick={() => {
                     setMainCategoryFilter(item.id as MainCategoryFilter);
                     setSubCategoryFilter("전체");
+                    setRegionFilter("전체");
                   }}
                   className={`flex shrink-0 items-center gap-2 rounded-lg border px-4 py-3 text-left text-sm font-black transition ${
                     active ? "border-transparent text-white shadow-sm" : "border-[#d3dfd4] bg-[#fbfcf8] text-[#526158] hover:bg-white"
@@ -602,6 +611,13 @@ export default function DesktopPage() {
                 </button>
               ))}
             </div>
+
+            <label className="flex shrink-0 items-center gap-2 rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-3 py-2 text-xs font-black text-[#526158]">
+              지역
+              <select value={regionFilter} onChange={(event) => setRegionFilter(event.target.value)} className="bg-transparent font-bold outline-none">
+                {regionOptions.map((region) => <option key={region} value={region}>{region === "전체" ? "전체" : `${region} 지역`}</option>)}
+              </select>
+            </label>
 
             <div className="flex shrink-0 items-center gap-2 rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-3 py-2">
               <span className="text-xs font-black" style={{ color: GW_BLUE }}>꼭 가고 싶은 장소</span>

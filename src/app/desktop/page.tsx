@@ -1139,7 +1139,7 @@ function PlaceDetailPanel({
         </button>
       </div>
       <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="flex h-[200px] shrink-0 flex-col rounded-lg bg-[#f7faf6] px-4 py-3">
+        <div className="flex min-h-0 flex-1 flex-col rounded-lg bg-[#f7faf6] px-4 py-3">
           <p className="shrink-0 text-[11px] font-black text-[#66756c]">장소 설명</p>
           <div className="mt-2 min-h-0 flex-1 overflow-y-auto pb-3 pr-3">
             <p className="text-sm leading-6 text-[#526158]">{place.desc}</p>
@@ -1165,7 +1165,7 @@ function WeatherInsightCard({ weather }: { weather?: WeatherSummary }) {
     : "border-[#dce6dc] bg-[#f7faf6] text-[#66756c]";
 
   return (
-    <section className={`mt-4 rounded-lg border px-4 py-3 ${levelClass}`}>
+    <section className={`mt-4 shrink-0 rounded-lg border px-4 py-3 ${levelClass}`}>
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="text-[11px] font-black">기상 기반 방문 적합도</p>
         <span className="rounded-md bg-white/70 px-2 py-1 text-[10px] font-black">

@@ -465,6 +465,11 @@ export default function DesktopPage() {
     if (travelMode === "walk" && transitOrigin) void loadTransitRoutes(course, transitOrigin);
   };
 
+  const openPlanner = () => {
+    setPlanMode(mustGoSpots.length > 0 ? "selected-only" : "selected-with-recommendations");
+    setIsPlannerOpen(true);
+  };
+
   const generateCourse = async () => {
     if (travelMode === "walk" && !transitOrigin) {
       alert("대중교통 경로를 만들려면 현재 위치를 사용하거나 출발지를 직접 입력해주세요.");
@@ -536,7 +541,7 @@ export default function DesktopPage() {
                 목록 새로고침
               </button>
               <button
-                onClick={() => setIsPlannerOpen(true)}
+                onClick={openPlanner}
                 className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-black text-white shadow-sm"
                 style={{ backgroundColor: GW_BLUE }}
               >

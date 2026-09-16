@@ -40,6 +40,14 @@ export type CourseWeatherSummary = {
   recommendationHint?: string;
 };
 
+export function shiftTimeRange(timeRange: string, offsetMinutes: number) {
+  if (offsetMinutes === 0) return timeRange;
+  return timeRange.replace(/(\d{2}):(\d{2})/g, (_match, hour: string, minute: string) => {
+    const totalMinutes = (Number(hour) * 60 + Number(minute) + offsetMinutes) % (24 * 60);
+    return `${String(Math.floor(totalMinutes / 60)).padStart(2, "0")}:${String(totalMinutes % 60).padStart(2, "0")}`;
+  });
+}
+
 export function buildWellnessCourse<TPlace extends CoursePlace>({
   places,
   mustGoIds,

@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { buildWellnessCourse, type PlaceCourseItem as BuiltPlaceCourseItem, type WellnessCourseItem } from "@/lib/course-builder";
+import { buildWellnessCourse, shiftTimeRange, type PlaceCourseItem as BuiltPlaceCourseItem, type WellnessCourseItem } from "@/lib/course-builder";
 import type { TransitOrigin, TransitRoute } from "@/lib/kakao-transit";
 import { getKakaoDrivingRouteUrl, getKakaoMapSearchUrl } from "@/lib/kakao-map-links";
 import { cachePlaceList, getCachedPlaceList } from "@/lib/place-list-cache";
@@ -1338,14 +1338,6 @@ function Timeline({
       )}
     </div>
   );
-}
-
-function shiftTimeRange(timeRange: string, offsetMinutes: number) {
-  if (offsetMinutes === 0) return timeRange;
-  return timeRange.replace(/(\d{2}):(\d{2})/g, (_match, hour: string, minute: string) => {
-    const totalMinutes = (Number(hour) * 60 + Number(minute) + offsetMinutes) % (24 * 60);
-    return `${String(Math.floor(totalMinutes / 60)).padStart(2, "0")}:${String(totalMinutes % 60).padStart(2, "0")}`;
-  });
 }
 
 function DrivingRouteInfo({ course, travelIndex, fallbackDuration }: { course: CourseItem[]; travelIndex: number; fallbackDuration: number }) {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Leaf, Map, User } from "lucide-react";
+import { Leaf, Map, Menu, RefreshCw, User } from "lucide-react";
 import { useEffect, useState } from "react";
 
 type Place = { id: string; name: string; category: "spot" | "food" | "stay" };
@@ -40,21 +40,23 @@ export default function DesktopProfilePage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-[#eef3ee] px-6 py-8 text-[#17211b]">
-      <div className="mx-auto max-w-[1440px]">
-        <header className="sticky top-0 z-30 flex items-center justify-between rounded-2xl border border-[#d3dfd4] bg-white px-6 py-4 shadow-sm">
+    <main className="min-h-screen bg-[#eef3ee] text-[#17211b]">
+      <div className="mx-auto min-h-screen max-w-[1760px] bg-[#f7faf6]">
+        <header className="sticky top-0 z-30 border-b border-[#d3dfd4] bg-white/95 px-6 py-4 backdrop-blur">
+          <div className="flex flex-wrap items-center justify-between gap-4">
           <Link href="/desktop" className="flex items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#005BAA] text-white"><Leaf size={23} /></span>
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#005BAA] text-white"><Leaf size={26} /></span>
             <span><strong className="block text-lg text-[#005BAA]">웰니스 강원</strong><small className="font-bold text-[#5f6f66]">원스톱 치유 여행</small></span>
           </Link>
           <nav className="flex items-center gap-3 text-sm font-black">
-            <Link href="/desktop" className="rounded-lg border border-[#d3dfd4] px-4 py-2.5 text-[#526158]">목록 새로고침</Link>
-            <Link href="/desktop" className="rounded-lg border border-[#d3dfd4] px-4 py-2.5 text-[#526158]">루트 계획</Link>
-            <span className="flex items-center gap-2 rounded-lg bg-[#005BAA] px-4 py-2.5 text-white"><User size={16} /> MY</span>
+            <Link href="/desktop" className="flex items-center gap-2 rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 text-[#526158]"><RefreshCw size={16} />목록 새로고침</Link>
+            <Link href="/desktop" className="flex items-center gap-2 rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 text-[#526158]"><Menu size={18} />루트 계획</Link>
+            <span className="flex items-center gap-2 rounded-lg bg-[#005BAA] px-4 py-3 text-white"><User size={18} />MY</span>
           </nav>
+          </div>
         </header>
 
-        <section className="mt-8 grid gap-6 lg:grid-cols-[300px_1fr]">
+        <section className="mx-auto grid max-w-[1760px] gap-6 px-6 py-8 lg:grid-cols-[300px_1fr]">
           <aside className="rounded-2xl bg-gradient-to-br from-emerald-600 to-blue-700 p-7 text-white shadow-sm">
             <span className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15"><User size={28} /></span>
             <p className="text-xs font-black tracking-[0.16em] text-emerald-100">MY WELLNESS ROUTE</p>

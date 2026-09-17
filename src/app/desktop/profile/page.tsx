@@ -42,13 +42,14 @@ export default function DesktopProfilePage() {
   return (
     <main className="min-h-screen bg-[#eef3ee] px-6 py-8 text-[#17211b]">
       <div className="mx-auto max-w-[1440px]">
-        <header className="flex items-center justify-between rounded-2xl border border-[#d3dfd4] bg-white px-6 py-4 shadow-sm">
+        <header className="sticky top-0 z-30 flex items-center justify-between rounded-2xl border border-[#d3dfd4] bg-white px-6 py-4 shadow-sm">
           <Link href="/desktop" className="flex items-center gap-3">
             <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#005BAA] text-white"><Leaf size={23} /></span>
             <span><strong className="block text-lg text-[#005BAA]">웰니스 강원</strong><small className="font-bold text-[#5f6f66]">원스톱 치유 여행</small></span>
           </Link>
           <nav className="flex items-center gap-3 text-sm font-black">
-            <Link href="/desktop" className="rounded-lg border border-[#d3dfd4] px-4 py-2.5 text-[#526158]">전체 탐색</Link>
+            <Link href="/desktop" className="rounded-lg border border-[#d3dfd4] px-4 py-2.5 text-[#526158]">목록 새로고침</Link>
+            <Link href="/desktop" className="rounded-lg border border-[#d3dfd4] px-4 py-2.5 text-[#526158]">루트 계획</Link>
             <span className="flex items-center gap-2 rounded-lg bg-[#005BAA] px-4 py-2.5 text-white"><User size={16} /> MY</span>
           </nav>
         </header>

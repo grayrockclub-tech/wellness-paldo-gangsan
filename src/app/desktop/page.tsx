@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
-  Database,
   Filter,
   Leaf,
   Loader2,
@@ -297,7 +296,7 @@ export default function DesktopPage() {
   const [imagePlace, setImagePlace] = useState<Place | null>(null);
   const [isRecommendationOpen, setIsRecommendationOpen] = useState(false);
   const [places, setPlaces] = useState<Place[]>(PLACES);
-  const [tourDataSource, setTourDataSource] = useState<"loading" | "tourapi" | "mixed" | "fallback">("loading");
+  const [, setTourDataSource] = useState<"loading" | "tourapi" | "mixed" | "fallback">("loading");
   const [isRefreshingPlaces, setIsRefreshingPlaces] = useState(false);
   const [travelMode, setTravelMode] = useState<TravelMode>("walk");
   const [planMode, setPlanMode] = useState<PlanMode>("selected-with-recommendations");
@@ -622,12 +621,6 @@ export default function DesktopPage() {
             </a>
 
             <div className="flex items-center gap-3 text-sm">
-              <Link href="/?view=mobile" className="rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 font-bold text-[#526158]">
-                모바일 화면
-              </Link>
-              <div className="rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 font-bold">
-                Data <span className="ml-2 text-[#087a36]">{tourDataSource === "tourapi" ? "TourAPI" : tourDataSource === "mixed" ? "공공 API + 보강 데이터" : tourDataSource === "loading" ? "Loading" : "Sample"}</span>
-              </div>
               <button
                 type="button"
                 onClick={() => void refreshTourPlaces()}
@@ -652,13 +645,6 @@ export default function DesktopPage() {
               >
                 <User size={18} />
                 MY
-              </Link>
-              <Link
-                href="/admin/places"
-                className="flex items-center gap-2 rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 font-black text-[#005BAA] transition hover:bg-white"
-              >
-                <Database size={18} />
-                장소 입력
               </Link>
             </div>
           </div>

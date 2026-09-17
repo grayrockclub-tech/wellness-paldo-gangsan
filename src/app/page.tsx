@@ -205,12 +205,6 @@ function initialDepartureClock() {
   return `${String(hour).padStart(2, "0")}:${minute < 30 ? "00" : "30"}`;
 }
 
-function getPlaceSourceDescription(place: Pick<Place, "contentId" | "dataSource">) {
-  if (place.dataSource === "gangwon-restaurant") return "강원 일반음식점 API";
-  if (place.dataSource === "curated") return "웰니스 제휴 데이터";
-  return place.contentId || place.dataSource === "tourapi" ? "한국관광공사 TourAPI" : "샘플 데이터";
-}
-
 function createWeatherFallback(): WeatherSummary {
   return {
     source: "fallback",
@@ -984,7 +978,6 @@ export default function Home() {
                         <span className="shrink-0 whitespace-nowrap rounded-md border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700">
                           {place.category === "food" ? "맛집" : place.category === "stay" ? "숙소" : "스팟"}
                         </span>
-                        <PlaceSourceBadge place={place} />
                         {weatherByPlaceId[place.id] && <WeatherMiniBadge weather={weatherByPlaceId[place.id]} />}
                       </div>
                       <h4 className="mb-1 text-[14px] font-bold leading-tight text-slate-800">{place.name}</h4>
@@ -1058,7 +1051,7 @@ export default function Home() {
                     <button type="button" onClick={() => void resolveOriginQuery()} disabled={isResolvingOrigin || !originQuery.trim()} className="rounded-2xl px-4 text-[11px] font-black text-white disabled:bg-slate-300" style={{ backgroundColor: GW_BLUE }}>검색</button>
                   </div>
                   {transitOrigin && <p className="mt-3 rounded-xl bg-white/60 px-3 py-2 text-[10px] font-black text-slate-600"><MapPin size={12} className="mr-1 inline" style={{ color: GW_GREEN }} /> 출발: {transitOrigin.name}</p>}
-                  <div className="mt-4 grid grid-cols-2 gap-3">
+                  <div className="mt-4 grid grid-cols-1 gap-3">
                     <label className="block min-w-0 text-[11px] font-black text-slate-700">출발 날짜<input type="date" value={departureDate} onChange={(event) => setDepartureDate(event.target.value)} className="mt-2 w-full min-w-0 rounded-2xl border border-white/70 bg-white/70 px-3 py-3 text-[11px] font-bold text-slate-700 outline-none" /></label>
                     <label className="block min-w-0 text-[11px] font-black text-slate-700">출발 시간<select value={departureClock} onChange={(event) => setDepartureClock(event.target.value)} className="mt-2 w-full rounded-2xl border border-white/70 bg-white/70 px-3 py-3 text-[11px] font-bold text-slate-700 outline-none">{DEPARTURE_TIME_OPTIONS.map((time) => <option key={time} value={time}>{time}</option>)}</select></label>
                   </div>
@@ -1261,7 +1254,6 @@ export default function Home() {
               <p className="mb-1 text-[10px] font-black text-slate-400">장소 설명</p>
               <p className="mb-4 text-[13px] font-medium leading-relaxed text-slate-600">{viewingPlace.desc}</p>
               <div className="mb-5 flex flex-wrap items-center gap-2">
-                <PlaceSourceBadge place={viewingPlace} size="md" />
                 <WeatherMiniBadge weather={weatherByPlaceId[viewingPlace.id]} size="md" />
               </div>
               <WeatherInsightCard weather={weatherByPlaceId[viewingPlace.id]} compact />
@@ -1658,19 +1650,6 @@ function TourDataStatusBadge({ source }: { source: "loading" | "tourapi" | "mixe
   return (
     <span className={`inline-flex items-center rounded-full border px-3 py-1.5 text-[10px] font-black ${className}`}>
       {label}
-    </span>
-  );
-}
-
-function PlaceSourceBadge({ place, size = "sm" }: { place: Pick<Place, "contentId" | "dataSource">; size?: "sm" | "md" }) {
-  const realData = Boolean(place.contentId || place.dataSource === "gangwon-restaurant");
-  return (
-    <span
-      className={`shrink-0 whitespace-nowrap rounded-md border font-black ${
-        size === "md" ? "px-3 py-1.5 text-[10px]" : "px-2 py-0.5 text-[9px]"
-      } ${realData ? "border-blue-100 bg-blue-50 text-blue-700" : "border-slate-100 bg-slate-50 text-slate-500"}`}
-    >
-      {getPlaceSourceDescription(place)}
     </span>
   );
 }

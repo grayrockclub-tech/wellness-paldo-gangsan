@@ -606,7 +606,7 @@ export default function DesktopPage() {
                 {mustGoSpots.length > 0 && <span className="rounded-md bg-white/20 px-2 py-0.5 text-xs">{mustGoSpots.length}개 선택</span>}
               </button>
               <Link
-                href="/?view=mobile&tab=profile"
+                href="/desktop/profile"
                 className="flex items-center gap-2 rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 font-black text-[#005BAA] transition hover:bg-white"
               >
                 <User size={18} />

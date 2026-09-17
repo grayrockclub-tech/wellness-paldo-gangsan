@@ -103,6 +103,18 @@ type TourPlacesResponse = {
 };
 
 type SessionResponse = { authenticated: boolean };
+type SavedPlan = {
+  id: string;
+  course: CourseItem[];
+  travelMode: TravelMode;
+  planMode: PlanMode;
+  mustGoSpots: string[];
+  origin: TransitOrigin | null;
+  originTransit: TransitRoute | null;
+  transitLegs: Record<number, TransitRoute>;
+  departureDate: string;
+  departureClock: string;
+};
 
 type WeatherSummary = {
   source: "weatherapi" | "fallback";
@@ -347,6 +359,35 @@ export default function DesktopPage() {
       .then((session) => setIsAuthenticated(session.authenticated))
       .catch(() => setIsAuthenticated(false));
   }, []);
+
+  useEffect(() => {
+    const savedPlanId = new URLSearchParams(window.location.search).get("loadPlan");
+    if (!savedPlanId) return;
+
+    fetch("/api/routes", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Failed to load saved routes");
+        return await response.json() as { plans: SavedPlan[] };
+      })
+      .then(({ plans }) => {
+        const plan = plans.find((item) => item.id === savedPlanId);
+        if (!plan) return;
+        setGeneratedCourse(plan.course);
+        setTravelMode(plan.travelMode);
+        setPlanMode(plan.planMode);
+        setMustGoSpots(plan.mustGoSpots);
+        setTransitOrigin(plan.origin);
+        setOriginTransit(plan.originTransit);
+        setTransitLegs(plan.transitLegs);
+        setDepartureDate(plan.departureDate);
+        setDepartureClock(plan.departureClock);
+        const firstPlace = plan.course.find(isPlaceCourseItem);
+        if (firstPlace) setSelectedPlace(firstPlace);
+        setIsPlannerOpen(true);
+        router.replace("/desktop");
+      })
+      .catch(() => alert("저장된 루트를 불러오지 못했습니다."));
+  }, [router]);
 
   useEffect(() => {
     let canceled = false;

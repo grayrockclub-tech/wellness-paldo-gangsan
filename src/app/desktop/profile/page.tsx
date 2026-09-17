@@ -69,7 +69,7 @@ export default function DesktopProfilePage() {
             <div className="mt-7 space-y-4">
               {isLoading ? <p className="py-16 text-center text-sm font-bold text-[#75837b]">저장된 루트를 불러오는 중입니다.</p> : plans.length > 0 ? plans.map((plan) => (
                 <article key={plan.id} className="rounded-xl border border-[#dce6dc] bg-[#fbfcf8] p-5">
-                  <p className="text-xs font-black text-[#75837b]">{plan.date} 생성</p>
+                  <div className="flex items-center justify-between gap-4"><p className="text-xs font-black text-[#75837b]">{plan.date} 생성</p><Link href={`/desktop?loadPlan=${encodeURIComponent(plan.id)}`} className="rounded-lg border border-[#005BAA] px-3 py-2 text-xs font-black text-[#005BAA]">불러오기</Link></div>
                   <div className="mt-4 flex flex-wrap gap-2">{plan.course.filter(isPlace).map((place) => <span key={`${plan.id}-${place.id}`} className="rounded-lg bg-white px-3 py-2 text-sm font-black text-[#526158]">{place.name}</span>)}</div>
                 </article>
               )) : <div className="flex min-h-64 flex-col items-center justify-center rounded-xl bg-[#f4f7f3] text-center"><Map size={34} className="mb-3 text-[#9aad9f]" /><p className="font-black text-[#526158]">저장된 루트가 없습니다.</p></div>}

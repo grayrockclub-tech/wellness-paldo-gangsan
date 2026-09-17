@@ -671,7 +671,7 @@ export default function Home() {
       setTransitLegs({});
       if (travelMode === "walk" && transitOrigin) void loadTransitRoutes(course, transitOrigin);
       setIsPlanning(false);
-      setActiveTab("planner");
+      setActiveTab("map");
     }, remainingDelay);
   };
 
@@ -762,7 +762,6 @@ export default function Home() {
               </div>
             )
           ))}
-          {activeTab === "planner" && <button type="button" onClick={() => setActiveTab("map")} className="glass-button flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-[11px] font-black" style={{ color: GW_BLUE }}><Map size={15} /> 지도에서 경로 보기</button>}
         </div>
       ) : (
         <div className="rounded-2xl bg-white/40 px-4 py-8 text-center">
@@ -1061,7 +1060,6 @@ export default function Home() {
               <button type="button" onClick={generateCourse} disabled={isPlanning} className="mt-6 flex w-full items-center justify-center rounded-2xl py-5 text-sm font-black text-white shadow-lg transition-all active:scale-95 disabled:bg-slate-300 disabled:shadow-none" style={!isPlanning ? { backgroundColor: GW_BLUE } : {}}>
                 {isPlanning ? <><Loader2 size={18} className="mr-2 animate-spin" /> 원스톱 루트 생성 중...</> : "원스톱 루트 생성하기"}
               </button>
-              {scheduleContent}
             </section>
           </div>
         )}

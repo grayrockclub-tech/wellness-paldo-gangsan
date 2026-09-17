@@ -25,6 +25,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildWellnessCourse, shiftTimeRange, type PlaceCourseItem as BuiltPlaceCourseItem, type WellnessCourseItem } from "@/lib/course-builder";
 import type { TransitOrigin, TransitRoute } from "@/lib/kakao-transit";
@@ -100,6 +101,8 @@ type TourPlacesResponse = {
   source: "tourapi" | "mixed" | "fallback";
   places: Place[];
 };
+
+type SessionResponse = { authenticated: boolean };
 
 type WeatherSummary = {
   source: "weatherapi" | "fallback";
@@ -273,6 +276,7 @@ function uniquePlaces<TPlace extends Pick<Place, "id">>(places: TPlace[]) {
 }
 
 export default function DesktopPage() {
+  const router = useRouter();
   const [mainCategoryFilter, setMainCategoryFilter] = useState<MainCategoryFilter>("all");
   const [subCategoryFilter, setSubCategoryFilter] = useState<SubCategoryFilter>("전체");
   const [regionFilter, setRegionFilter] = useState("전체");
@@ -294,6 +298,8 @@ export default function DesktopPage() {
   const [originTransit, setOriginTransit] = useState<TransitRoute | null>(null);
   const [transitLegs, setTransitLegs] = useState<Record<number, TransitRoute>>({});
   const [isPlanning, setIsPlanning] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isSavingCourse, setIsSavingCourse] = useState(false);
   const [generatedCourse, setGeneratedCourse] = useState<CourseItem[] | null>(null);
   const [weatherByPlaceId, setWeatherByPlaceId] = useState<Record<string, WeatherSummary>>({});
   const [isPlannerOpen, setIsPlannerOpen] = useState(false);
@@ -334,6 +340,13 @@ export default function DesktopPage() {
     }
     void Promise.resolve().then(refreshTourPlaces);
   }, [refreshTourPlaces]);
+
+  useEffect(() => {
+    fetch("/api/auth/session", { cache: "no-store" })
+      .then(async (response) => response.ok ? await response.json() as SessionResponse : { authenticated: false })
+      .then((session) => setIsAuthenticated(session.authenticated))
+      .catch(() => setIsAuthenticated(false));
+  }, []);
 
   useEffect(() => {
     let canceled = false;
@@ -381,6 +394,7 @@ export default function DesktopPage() {
 
   const selectedMustGoPlaces = mustGoSpots.map((id) => places.find((place) => place.id === id)).filter((place): place is Place => Boolean(place));
   const firstCoursePlace = generatedCourse?.find(isPlaceCourseItem);
+  const generatedCoursePlaces = generatedCourse?.filter(isPlaceCourseItem) ?? [];
   useEffect(() => {
     placeCardRefs.current[selectedPlace.id]?.scrollIntoView({
       behavior: "smooth",
@@ -451,19 +465,60 @@ export default function DesktopPage() {
     setTransitLegs(Object.fromEntries(routes.slice(1).map((route, index) => [index, route])));
   };
 
-  const moveSelectedPlace = (placeId: string, direction: -1 | 1) => {
-    const currentIndex = mustGoSpots.indexOf(placeId);
-    const nextIndex = currentIndex + direction;
-    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= mustGoSpots.length) return;
-    const nextOrder = [...mustGoSpots];
-    [nextOrder[currentIndex], nextOrder[nextIndex]] = [nextOrder[nextIndex], nextOrder[currentIndex]];
+  const updateGeneratedCoursePlaces = (nextPlaces: Place[]) => {
+    const nextOrder = nextPlaces.map((place) => place.id);
+    if (nextOrder.length === 0) {
+      setGeneratedCourse(null);
+      setMustGoSpots([]);
+      setOriginTransit(null);
+      setTransitLegs({});
+      return;
+    }
+    const course = buildCourse({ places: nextPlaces, mustGoIds: nextOrder, planMode: "selected-only", theme: recommendationTheme, travelMode, startTime: combineDepartureDateTime(departureDate, departureClock), manualOrderIds: nextOrder, weatherByPlaceId });
+    setPlanMode("selected-only");
     setMustGoSpots(nextOrder);
-    if (planMode !== "selected-only" || !generatedCourse) return;
-    const course = buildCourse({ places, mustGoIds: nextOrder, planMode, theme: recommendationTheme, travelMode, startTime: combineDepartureDateTime(departureDate, departureClock), manualOrderIds: nextOrder, weatherByPlaceId });
     setGeneratedCourse(course);
     setOriginTransit(null);
     setTransitLegs({});
     if (travelMode === "walk" && transitOrigin) void loadTransitRoutes(course, transitOrigin);
+  };
+
+  const moveGeneratedPlace = (placeId: string, direction: -1 | 1) => {
+    const currentIndex = generatedCoursePlaces.findIndex((place) => place.id === placeId);
+    const nextIndex = currentIndex + direction;
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= generatedCoursePlaces.length) return;
+    const nextPlaces = [...generatedCoursePlaces];
+    [nextPlaces[currentIndex], nextPlaces[nextIndex]] = [nextPlaces[nextIndex], nextPlaces[currentIndex]];
+    updateGeneratedCoursePlaces(nextPlaces);
+  };
+
+  const removeGeneratedPlace = (placeId: string) => {
+    updateGeneratedCoursePlaces(generatedCoursePlaces.filter((place) => place.id !== placeId));
+  };
+
+  const saveGeneratedCourse = async () => {
+    if (!generatedCourse) return;
+    if (!isAuthenticated) {
+      alert("루트를 저장하려면 카카오 로그인이 필요합니다.");
+      router.push("/?view=mobile&tab=login");
+      return;
+    }
+
+    setIsSavingCourse(true);
+    try {
+      const response = await fetch("/api/routes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: { course: generatedCourse, travelMode, planMode, mustGoSpots, origin: transitOrigin, originTransit, transitLegs, departureDate, departureClock } }),
+      });
+      const data = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(data.error || "루트를 저장하지 못했습니다.");
+      alert("원스톱 루트가 저장되었습니다.");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "루트를 저장하지 못했습니다.");
+    } finally {
+      setIsSavingCourse(false);
+    }
   };
 
   const openPlanner = () => {
@@ -791,7 +846,7 @@ export default function DesktopPage() {
                       추천 이유
                     </button>
                   )}
-                  <button className="rounded-lg border border-[#dce6dc] p-2 text-[#526158]" title="저장">
+                  <button type="button" onClick={() => void saveGeneratedCourse()} disabled={!generatedCourse || isSavingCourse} className="rounded-lg border border-[#dce6dc] p-2 text-[#526158] disabled:cursor-not-allowed disabled:opacity-40" title={isSavingCourse ? "저장 중" : "저장"} aria-label="일정 저장">
                     <Save size={16} />
                   </button>
                 </div>
@@ -813,7 +868,7 @@ export default function DesktopPage() {
                       </div>
                     </>
                   )}
-                  <Timeline course={generatedCourse} travelMode={travelMode} weatherByPlaceId={weatherByPlaceId} transitLegs={transitLegs} planMode={planMode} mustGoSpots={mustGoSpots} timeOffsetMinutes={travelMode === "walk" && originTransit?.status === "ready" ? originTransit.durationMinutes ?? 0 : 0} onMoveSelectedPlace={moveSelectedPlace} onNavigate={openKakaoMapSearch} />
+                  <Timeline course={generatedCourse} travelMode={travelMode} weatherByPlaceId={weatherByPlaceId} transitLegs={transitLegs} timeOffsetMinutes={travelMode === "walk" && originTransit?.status === "ready" ? originTransit.durationMinutes ?? 0 : 0} onMovePlace={moveGeneratedPlace} onRemovePlace={removeGeneratedPlace} onNavigate={openKakaoMapSearch} />
                 </div>
               ) : (
                 <div className="flex min-h-[260px] flex-col items-center justify-center rounded-lg bg-[#f4f7f3] px-6 text-center">
@@ -1285,22 +1340,21 @@ function Timeline({
   travelMode,
   weatherByPlaceId,
   transitLegs,
-  planMode,
-  mustGoSpots,
   timeOffsetMinutes,
-  onMoveSelectedPlace,
+  onMovePlace,
+  onRemovePlace,
   onNavigate,
 }: {
   course: CourseItem[];
   travelMode: TravelMode;
   weatherByPlaceId: Record<string, WeatherSummary>;
   transitLegs: Record<number, TransitRoute>;
-  planMode: PlanMode;
-  mustGoSpots: string[];
   timeOffsetMinutes: number;
-  onMoveSelectedPlace: (placeId: string, direction: -1 | 1) => void;
+  onMovePlace: (placeId: string, direction: -1 | 1) => void;
+  onRemovePlace: (placeId: string) => void;
   onNavigate: (destinationName: string) => void;
 }) {
+  const placeItems = course.filter(isPlaceCourseItem);
   return (
     <div className="space-y-4">
       {course.map((item, index) =>
@@ -1315,12 +1369,11 @@ function Timeline({
               <span className="rounded-md bg-white px-2 py-1 text-[11px] font-black" style={{ color: GW_BLUE }}>
                 {shiftTimeRange(item.timeRange, timeOffsetMinutes)}
               </span>
-              {planMode === "selected-only" && mustGoSpots.includes(item.id) && (
-                <span className="flex items-center gap-1">
-                  <button onClick={() => onMoveSelectedPlace(item.id, -1)} disabled={mustGoSpots.indexOf(item.id) === 0} className="rounded border border-[#dce6dc] p-1 text-[#526158] disabled:opacity-30" title="위로 이동"><ChevronUp size={13} /></button>
-                  <button onClick={() => onMoveSelectedPlace(item.id, 1)} disabled={mustGoSpots.indexOf(item.id) === mustGoSpots.length - 1} className="rounded border border-[#dce6dc] p-1 text-[#526158] disabled:opacity-30" title="아래로 이동"><ChevronDown size={13} /></button>
-                </span>
-              )}
+              <span className="flex items-center gap-1">
+                <button onClick={() => onMovePlace(item.id, -1)} disabled={placeItems.findIndex((place) => place.id === item.id) === 0} className="rounded border border-[#dce6dc] p-1 text-[#526158] disabled:opacity-30" title="위로 이동" aria-label={`${item.name} 위로 이동`}><ChevronUp size={13} /></button>
+                <button onClick={() => onMovePlace(item.id, 1)} disabled={placeItems.findIndex((place) => place.id === item.id) === placeItems.length - 1} className="rounded border border-[#dce6dc] p-1 text-[#526158] disabled:opacity-30" title="아래로 이동" aria-label={`${item.name} 아래로 이동`}><ChevronDown size={13} /></button>
+                <button onClick={() => onRemovePlace(item.id)} className="rounded border border-[#dce6dc] p-1 text-[#526158]" title="일정에서 삭제" aria-label={`${item.name} 일정에서 삭제`}><X size={13} /></button>
+              </span>
               {travelMode === "drive" && (
                 <button onClick={() => onNavigate(item.name)} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-black text-white" style={{ backgroundColor: GW_BLUE }}>
                   <Navigation size={12} />

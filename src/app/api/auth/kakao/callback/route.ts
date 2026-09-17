@@ -61,6 +61,7 @@ export async function GET(request: NextRequest) {
     const user = normalizeKakaoUser(kakaoUser);
     if (!user) throw new Error("Kakao user profile is empty");
 
+    redirectTarget.searchParams.set("tab", "home");
     const response = clearStateCookie(NextResponse.redirect(redirectTarget));
     response.cookies.set(
       kakaoAuthCookies.session,

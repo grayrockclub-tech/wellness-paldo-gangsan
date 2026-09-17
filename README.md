@@ -29,6 +29,7 @@ npm run dev
 TOUR_API_KEY=
 GANGWON_RESTAURANT_API_KEY=
 WEATHER_API_KEY=
+DATABASE_URL=
 NEXT_PUBLIC_KAKAO_MAP_KEY=
 KAKAO_REST_API_KEY=
 ```
@@ -37,6 +38,8 @@ KAKAO_REST_API_KEY=
 카카오 지도 JavaScript 키는 브라우저에서 지도 SDK를 불러와야 하므로 `NEXT_PUBLIC_KAKAO_MAP_KEY`로 설정합니다.
 공공데이터포털 TourAPI 키는 Encoding/Decoding 키 모두 입력 가능하도록 서버에서 정규화합니다.
 강원특별자치도 일반음식점 현황 API의 업소명·업태·도로명주소를 맛집 후보에 반영합니다. 이 API는 기본적으로 공공데이터포털 공통 인증키인 `TOUR_API_KEY`를 재사용하고, 다른 계정의 키가 필요할 때만 `GANGWON_RESTAURANT_API_KEY`를 설정합니다. 원본 데이터에 좌표가 없으므로 `KAKAO_REST_API_KEY`로 도로명주소를 좌표로 변환하며, 모든 키는 서버 환경변수로만 관리합니다.
+
+`DATABASE_URL`에는 Neon 프로젝트의 연결 문자열을 넣습니다. 카카오 로그인 사용자의 ID를 기준으로 저장 루트를 분리하며, 같은 계정으로 로그인하면 다른 기기에서도 저장한 루트를 불러옵니다.
 
 ## 서버 API 라우트
 

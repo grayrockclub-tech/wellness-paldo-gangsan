@@ -69,7 +69,7 @@ type PlaceCourseItem = BuiltPlaceCourseItem<Place>;
 type CourseItem = WellnessCourseItem<Place>;
 
 type SavedPlan = {
-  id: number;
+  id: string;
   date: string;
   course: CourseItem[];
   travelMode: TravelMode;
@@ -308,6 +308,21 @@ export default function Home() {
   const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
 
   useEffect(() => {
+    if (!sessionUser) return;
+
+    let canceled = false;
+    fetch("/api/routes", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Failed to load saved routes");
+        return (await response.json()) as { plans: SavedPlan[] };
+      })
+      .then((data) => { if (!canceled) setSavedPlans(data.plans); })
+      .catch(() => { if (!canceled) setSavedPlans([]); });
+
+    return () => { canceled = true; };
+  }, [sessionUser]);
+
+  useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const forcedMobileView = searchParams.get("view") === "mobile";
     const requestedTab = searchParams.get("tab");
@@ -465,6 +480,7 @@ export default function Home() {
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
     setSessionUser(null);
+    setSavedPlans([]);
     setActiveTab("login");
   };
 
@@ -680,10 +696,27 @@ export default function Home() {
     setActiveTab("planner");
   };
 
-  const saveGeneratedCourse = () => {
+  const saveGeneratedCourse = async () => {
     if (!generatedCourse) return;
-    setSavedPlans((current) => [{ id: Date.now(), date: new Date().toLocaleDateString(), course: generatedCourse, travelMode, planMode, mustGoSpots, origin: transitOrigin, originTransit, transitLegs, departureDate, departureClock }, ...current]);
-    alert("원스톱 루트가 저장되었습니다.");
+    if (!sessionUser) {
+      alert("루트를 저장하려면 카카오 로그인이 필요합니다.");
+      setActiveTab("login");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/routes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: { course: generatedCourse, travelMode, planMode, mustGoSpots, origin: transitOrigin, originTransit, transitLegs, departureDate, departureClock } }),
+      });
+      const data = await response.json() as { plan?: SavedPlan; error?: string };
+      if (!response.ok || !data.plan) throw new Error(data.error || "Failed to save route");
+      setSavedPlans((current) => [data.plan!, ...current]);
+      alert("원스톱 루트가 저장되었습니다.");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "루트를 저장하지 못했습니다.");
+    }
   };
 
   const openSavedPlan = (plan: SavedPlan) => {

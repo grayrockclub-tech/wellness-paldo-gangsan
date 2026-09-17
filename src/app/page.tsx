@@ -298,6 +298,7 @@ export default function Home() {
   const [originTransit, setOriginTransit] = useState<TransitRoute | null>(null);
   const [transitLegs, setTransitLegs] = useState<Record<number, TransitRoute>>({});
   const [isPlanning, setIsPlanning] = useState(false);
+  const [isSavingCourse, setIsSavingCourse] = useState(false);
   const [generatedCourse, setGeneratedCourse] = useState<CourseItem[] | null>(null);
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
   const [places, setPlaces] = useState<Place[]>(KTO_MOCK_DATA);
@@ -647,20 +648,36 @@ export default function Home() {
     setTransitLegs(Object.fromEntries(resolved.slice(1).map((route, index) => [index, route])));
   };
 
-  const moveSelectedPlace = (placeId: string, direction: -1 | 1) => {
-    const currentIndex = mustGoSpots.indexOf(placeId);
-    const nextIndex = currentIndex + direction;
-    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= mustGoSpots.length) return;
-    const nextOrder = [...mustGoSpots];
-    [nextOrder[currentIndex], nextOrder[nextIndex]] = [nextOrder[nextIndex], nextOrder[currentIndex]];
-    setMustGoSpots(nextOrder);
+  const updateGeneratedCoursePlaces = (nextPlaces: Place[]) => {
+    const nextOrder = nextPlaces.map((place) => place.id);
+    if (nextOrder.length === 0) {
+      setGeneratedCourse(null);
+      setMustGoSpots([]);
+      setOriginTransit(null);
+      setTransitLegs({});
+      return;
+    }
 
-    if (planMode !== "selected-only" || !generatedCourse) return;
-    const course = buildWellnessCourse({ places, mustGoIds: nextOrder, planMode, theme: recommendationTheme, travelMode, startTime: combineDepartureDateTime(departureDate, departureClock), manualOrderIds: nextOrder, weatherByPlaceId });
+    const course = buildWellnessCourse({ places: nextPlaces, mustGoIds: nextOrder, planMode: "selected-only", theme: recommendationTheme, travelMode, startTime: combineDepartureDateTime(departureDate, departureClock), manualOrderIds: nextOrder, weatherByPlaceId });
+    setPlanMode("selected-only");
+    setMustGoSpots(nextOrder);
     setGeneratedCourse(course);
     setOriginTransit(null);
     setTransitLegs({});
     if (travelMode === "walk" && transitOrigin) void loadTransitRoutes(course, transitOrigin);
+  };
+
+  const moveGeneratedPlace = (placeId: string, direction: -1 | 1) => {
+    const currentIndex = generatedCoursePlaces.findIndex((place) => place.id === placeId);
+    const nextIndex = currentIndex + direction;
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= generatedCoursePlaces.length) return;
+    const nextPlaces = [...generatedCoursePlaces];
+    [nextPlaces[currentIndex], nextPlaces[nextIndex]] = [nextPlaces[nextIndex], nextPlaces[currentIndex]];
+    updateGeneratedCoursePlaces(nextPlaces);
+  };
+
+  const removeGeneratedPlace = (placeId: string) => {
+    updateGeneratedCoursePlaces(generatedCoursePlaces.filter((place) => place.id !== placeId));
   };
 
   const generateCourse = async () => {
@@ -704,6 +721,7 @@ export default function Home() {
       return;
     }
 
+    setIsSavingCourse(true);
     try {
       const response = await fetch("/api/routes", {
         method: "POST",
@@ -716,6 +734,8 @@ export default function Home() {
       alert("원스톱 루트가 저장되었습니다.");
     } catch (error) {
       alert(error instanceof Error ? error.message : "루트를 저장하지 못했습니다.");
+    } finally {
+      setIsSavingCourse(false);
     }
   };
 
@@ -742,7 +762,7 @@ export default function Home() {
         {generatedCourse && (
           <div className="flex items-center gap-2">
             <button type="button" onClick={() => setIsRecommendationOpen(true)} className="rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-[11px] font-black text-emerald-700">추천 이유</button>
-            <button type="button" onClick={saveGeneratedCourse} className="glass-button rounded-xl p-2" aria-label="루트 저장"><Save size={16} style={{ color: GW_BLUE }} /></button>
+            <button type="button" onClick={() => void saveGeneratedCourse()} disabled={isSavingCourse} className="glass-button rounded-xl p-2 disabled:cursor-wait disabled:opacity-60" aria-label="루트 저장"><Save size={16} style={{ color: GW_BLUE }} /></button>
           </div>
         )}
       </div>
@@ -767,12 +787,9 @@ export default function Home() {
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <span className="rounded-lg bg-white/70 px-2 py-1 text-[10px] font-black" style={{ color: GW_BLUE }}>{shiftTimeRange(item.timeRange, originTravelMinutes)}</span>
                   <div className="flex items-center gap-1">
-                    {planMode === "selected-only" && mustGoSpots.includes(item.id) && (
-                      <>
-                        <button type="button" onClick={(event) => { event.stopPropagation(); moveSelectedPlace(item.id, -1); }} disabled={mustGoSpots.indexOf(item.id) === 0} className="rounded-lg border border-white/80 bg-white/70 p-1.5 text-slate-500 disabled:opacity-30" aria-label={`${item.name} 위로 이동`}><ChevronUp size={13} /></button>
-                        <button type="button" onClick={(event) => { event.stopPropagation(); moveSelectedPlace(item.id, 1); }} disabled={mustGoSpots.indexOf(item.id) === mustGoSpots.length - 1} className="rounded-lg border border-white/80 bg-white/70 p-1.5 text-slate-500 disabled:opacity-30" aria-label={`${item.name} 아래로 이동`}><ChevronDown size={13} /></button>
-                      </>
-                    )}
+                    <button type="button" onClick={(event) => { event.stopPropagation(); moveGeneratedPlace(item.id, -1); }} disabled={generatedCoursePlaces.findIndex((place) => place.id === item.id) === 0} className="rounded-lg border border-white/80 bg-white/70 p-1.5 text-slate-500 disabled:opacity-30" aria-label={`${item.name} 위로 이동`}><ChevronUp size={13} /></button>
+                    <button type="button" onClick={(event) => { event.stopPropagation(); moveGeneratedPlace(item.id, 1); }} disabled={generatedCoursePlaces.findIndex((place) => place.id === item.id) === generatedCoursePlaces.length - 1} className="rounded-lg border border-white/80 bg-white/70 p-1.5 text-slate-500 disabled:opacity-30" aria-label={`${item.name} 아래로 이동`}><ChevronDown size={13} /></button>
+                    <button type="button" onClick={(event) => { event.stopPropagation(); removeGeneratedPlace(item.id); }} className="rounded-lg border border-white/80 bg-white/70 p-1.5 text-slate-500" aria-label={`${item.name} 일정에서 삭제`}><X size={13} /></button>
                     {travelMode === "drive" && <button type="button" onClick={(event) => { event.stopPropagation(); handleKakaoMapSearch(item.name); }} className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-black text-white" style={{ backgroundColor: GW_BLUE }}><Search size={11} /> 카카오맵</button>}
                   </div>
                 </div>

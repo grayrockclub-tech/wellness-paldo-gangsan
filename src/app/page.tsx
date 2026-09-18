@@ -14,7 +14,6 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
-  Database,
   Filter,
   Leaf,
   Loader2,
@@ -915,7 +914,7 @@ export default function Home() {
       <div className="animate-blob animation-delay-2000 pointer-events-none fixed right-[-10%] top-[40%] h-72 w-72 rounded-full opacity-15 mix-blend-multiply blur-3xl" style={{ backgroundColor: GW_BLUE }} />
 
       <main className="relative z-10 pb-32">
-        <header className="glass-nav sticky top-0 z-40 rounded-b-[2rem] px-6 pb-4 pt-12">
+        <header className="glass-nav sticky top-0 z-40 rounded-b-[2rem] px-6 pb-3 pt-3">
           <a href="https://wellness-paldo-gangsan.vercel.app" className="flex items-center text-2xl font-black tracking-tighter" style={{ color: GW_BLUE }}>
             <Leaf className="mr-2" size={24} style={{ color: GW_GREEN }} /> 웰니스 강원
           </a>
@@ -1193,23 +1192,17 @@ export default function Home() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
-                  <Link href="/admin/places" className="glass-panel flex items-center justify-center rounded-2xl px-4 py-4 text-[12px] font-black lg:justify-start lg:px-6" style={{ color: GW_BLUE }}>
-                    <Database size={16} className="mr-2" />
-                    장소 입력
-                  </Link>
-                  {sessionUser ? (
-                    <button onClick={handleLogout} className="glass-panel flex items-center justify-center rounded-2xl px-4 py-4 text-[12px] font-black text-slate-600 lg:justify-start lg:px-6">
-                      <LogOut size={16} className="mr-2" />
-                      로그아웃
-                    </button>
-                  ) : (
-                    <button onClick={handleKakaoLogin} className="flex items-center justify-center rounded-2xl bg-[#FEE500] px-4 py-4 text-[12px] font-black text-black">
-                      <MessageCircle size={16} className="mr-2" fill="currentColor" />
-                      카카오 로그인
-                    </button>
-                  )}
-                </div>
+                {sessionUser ? (
+                  <button onClick={handleLogout} className="glass-panel flex w-full items-center justify-center rounded-2xl px-4 py-4 text-[12px] font-black text-slate-600">
+                    <LogOut size={16} className="mr-2" />
+                    로그아웃
+                  </button>
+                ) : (
+                  <button onClick={handleKakaoLogin} className="flex w-full items-center justify-center rounded-2xl bg-[#FEE500] px-4 py-4 text-[12px] font-black text-black">
+                    <MessageCircle size={16} className="mr-2" fill="currentColor" />
+                    카카오 로그인
+                  </button>
+                )}
               </section>
 
               <section className="glass-panel min-w-0 rounded-[2rem] p-5 lg:min-h-[360px] lg:p-8">

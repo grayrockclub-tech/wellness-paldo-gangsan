@@ -72,3 +72,25 @@ export async function POST(request: NextRequest) {
     return noStoreJson({ error: "루트를 저장하지 못했습니다. 잠시 후 다시 시도해주세요." }, 503);
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  const userId = requireUserId(request);
+  if (!userId) return noStoreJson({ error: "로그인이 필요합니다." }, 401);
+
+  const id = request.nextUrl.searchParams.get("id");
+  if (!id) return noStoreJson({ error: "삭제할 루트를 찾을 수 없습니다." }, 400);
+
+  try {
+    const sql = await ensureSavedRoutesTable();
+    const rows = await sql`
+      DELETE FROM saved_routes
+      WHERE id = ${id} AND user_id = ${userId}
+      RETURNING id
+    ` as { id: string }[];
+    if (!rows[0]) return noStoreJson({ error: "삭제할 루트를 찾을 수 없습니다." }, 404);
+    return noStoreJson({ id: rows[0].id });
+  } catch (error) {
+    console.error("Failed to delete saved route", error);
+    return noStoreJson({ error: "저장된 루트를 삭제하지 못했습니다." }, 503);
+  }
+}

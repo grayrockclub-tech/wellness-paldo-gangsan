@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Leaf, Map, Menu, RefreshCw, User } from "lucide-react";
+import { Leaf, Map, Menu, Trash2, User } from "lucide-react";
 import { useEffect, useState } from "react";
 
 type Place = { id: string; name: string; category: "spot" | "food" | "stay" };
@@ -17,6 +17,7 @@ export default function DesktopProfilePage() {
   const [nickname, setNickname] = useState("");
   const [plans, setPlans] = useState<SavedPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadProfile() {
@@ -39,6 +40,21 @@ export default function DesktopProfilePage() {
     void loadProfile();
   }, []);
 
+  async function deletePlan(plan: SavedPlan) {
+    if (!window.confirm(`“${plan.course.filter(isPlace).map((place) => place.name).join(", ")}” 루트를 삭제할까요?`)) return;
+
+    setDeletingPlanId(plan.id);
+    try {
+      const response = await fetch(`/api/routes?id=${encodeURIComponent(plan.id)}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Failed to delete route");
+      setPlans((current) => current.filter((item) => item.id !== plan.id));
+    } catch {
+      alert("저장된 루트를 삭제하지 못했습니다. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setDeletingPlanId(null);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[#eef3ee] text-[#17211b]">
       <div className="mx-auto min-h-screen max-w-[1760px] bg-[#f7faf6]">
@@ -49,7 +65,6 @@ export default function DesktopProfilePage() {
             <span><strong className="block text-lg text-[#005BAA]">웰니스 강원</strong><small className="font-bold text-[#5f6f66]">원스톱 치유 여행</small></span>
           </Link>
           <nav className="flex items-center gap-3 text-sm font-black">
-            <Link href="/desktop" className="flex items-center gap-2 rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 text-[#526158]"><RefreshCw size={16} />목록 새로고침</Link>
             <Link href="/desktop" className="flex items-center gap-2 rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 text-[#526158]"><Menu size={18} />루트 계획</Link>
             <span className="flex items-center gap-2 rounded-lg bg-[#005BAA] px-4 py-3 text-white"><User size={18} />MY</span>
           </nav>
@@ -72,7 +87,7 @@ export default function DesktopProfilePage() {
             <div className="mt-7 space-y-4">
               {isLoading ? <p className="py-16 text-center text-sm font-bold text-[#75837b]">저장된 루트를 불러오는 중입니다.</p> : plans.length > 0 ? plans.map((plan) => (
                 <article key={plan.id} className="rounded-xl border border-[#dce6dc] bg-[#fbfcf8] p-5">
-                  <div className="flex items-center justify-between gap-4"><p className="text-xs font-black text-[#75837b]">{plan.date} 생성</p><Link href={`/desktop?loadPlan=${encodeURIComponent(plan.id)}`} className="rounded-lg border border-[#005BAA] px-3 py-2 text-xs font-black text-[#005BAA]">불러오기</Link></div>
+                  <div className="flex items-center justify-between gap-4"><p className="text-xs font-black text-[#75837b]">{plan.date} 생성</p><div className="flex items-center gap-2"><Link href={`/desktop?loadPlan=${encodeURIComponent(plan.id)}`} className="rounded-lg border border-[#005BAA] px-3 py-2 text-xs font-black text-[#005BAA]">불러오기</Link><button type="button" onClick={() => void deletePlan(plan)} disabled={deletingPlanId === plan.id} className="flex items-center gap-1 rounded-lg border border-rose-200 px-3 py-2 text-xs font-black text-rose-700 disabled:opacity-50"><Trash2 size={13} />{deletingPlanId === plan.id ? "삭제 중" : "삭제"}</button></div></div>
                   <div className="mt-4 flex flex-wrap gap-2">{plan.course.filter(isPlace).map((place) => <span key={`${plan.id}-${place.id}`} className="rounded-lg bg-white px-3 py-2 text-sm font-black text-[#526158]">{place.name}</span>)}</div>
                 </article>
               )) : <div className="flex min-h-64 flex-col items-center justify-center rounded-xl bg-[#f4f7f3] text-center"><Map size={34} className="mb-3 text-[#9aad9f]" /><p className="font-black text-[#526158]">저장된 루트가 없습니다.</p></div>}

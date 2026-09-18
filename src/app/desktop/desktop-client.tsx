@@ -198,7 +198,7 @@ function getRandomWellnessSpot(placeItems: Place[]) {
 const subCategoryMap: Record<PlaceCategory, SubCategoryFilter[]> = {
   spot: ["전체", "forest", "yoga", "meditation"],
   food: ["전체", "healthy", "local"],
-  stay: ["전체", "resort", "wellness", "healing", "hotel"],
+  stay: ["전체", "resort", "wellness", "healing"],
 };
 const routeThemes: { id: Exclude<PlanTheme, "auto">; label: string }[] = [
   { id: "food", label: "맛집 탐방" },
@@ -375,7 +375,7 @@ export default function DesktopClient({ initialPlaces }: { initialPlaces: Place[
   const filteredPlaces = useMemo(() => {
     return places.filter((place) => {
       const matchMain = mainCategoryFilter === "all" || place.category === mainCategoryFilter;
-      const matchSub = subCategoryFilter === "전체" || place.subCategory === subCategoryFilter;
+      const matchSub = subCategoryFilter === "전체" || (subCategoryFilter === "resort" ? place.subCategory === "resort" || place.subCategory === "hotel" : place.subCategory === subCategoryFilter);
       const matchRegion = regionFilter === "전체" || place.region === regionFilter;
       return matchMain && matchSub && matchRegion;
     }).sort((a, b) => {
@@ -1454,7 +1454,7 @@ function getSubCategoryLabel(category: SubCategoryFilter) {
     meditation: "명상",
     healthy: "건강식",
     local: "향토음식",
-    resort: "리조트",
+    resort: "호텔·리조트",
     wellness: "웰니스센터",
     healing: "힐링스테이",
     hotel: "호텔",

@@ -270,7 +270,7 @@ function uniquePlaces<TPlace extends Pick<Place, "id">>(places: TPlace[]) {
   });
 }
 
-export default function MobileHome({ initialPlaces, initialSource }: { initialPlaces: Place[]; initialSource: "tourapi" | "mixed" | "fallback" }) {
+export default function MobileHome({ initialPlaces }: { initialPlaces: Place[] }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ActiveTab>("login");
   const [mainCategoryFilter, setMainCategoryFilter] = useState<MainCategoryFilter>("all");
@@ -295,7 +295,6 @@ export default function MobileHome({ initialPlaces, initialSource }: { initialPl
   const [generatedCourse, setGeneratedCourse] = useState<CourseItem[] | null>(null);
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
   const places = initialPlaces;
-  const [tourDataSource] = useState<"tourapi" | "mixed" | "fallback">(initialSource);
   const [weatherByPlaceId, setWeatherByPlaceId] = useState<Record<string, WeatherSummary>>({});
   const [selectedMapPlaceId, setSelectedMapPlaceId] = useState<string | null>(null);
   const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
@@ -884,17 +883,9 @@ export default function MobileHome({ initialPlaces, initialSource }: { initialPl
         {activeTab === "home" && (
           <div className="p-6">
             <div className="mb-6">
-              <h2 className="mb-2 text-2xl font-black tracking-tight" style={{ color: GW_BLUE }}>
-                스팟부터 맛집·숙소까지
-                <br />
-                원스톱 탐색
+              <h2 className="text-2xl font-black tracking-tight" style={{ color: GW_BLUE }}>
+                힐링스팟·맛집·숙소를 원스톱으로
               </h2>
-              <p className="text-xs font-bold opacity-70" style={{ color: GW_BLUE }}>
-                강원도의 청정 힐링 공간을 만나보세요
-              </p>
-              <div className="mt-3 flex items-center gap-2">
-                <TourDataStatusBadge source={tourDataSource} />
-              </div>
             </div>
 
             <div className="mb-4 grid grid-cols-2 gap-2 min-[390px]:grid-cols-4">
@@ -921,18 +912,19 @@ export default function MobileHome({ initialPlaces, initialSource }: { initialPl
               ))}
             </div>
 
-            <div className="mb-2 flex flex-wrap gap-2 pb-4">
-              {mainCategoryFilter === "all" && <span className="px-3 py-2 text-[11px] font-bold text-slate-400">카테고리를 선택하세요</span>}
-              {mainCategoryFilter === "spot" && spotSubCategories.map((category) => (
-                <SubCategoryButton key={category} category={category} current={subCategoryFilter} onClick={setSubCategoryFilter} />
-              ))}
-              {mainCategoryFilter === "food" && foodSubCategories.map((category) => (
-                <SubCategoryButton key={category} category={category} current={subCategoryFilter} onClick={setSubCategoryFilter} />
-              ))}
-              {mainCategoryFilter === "stay" && staySubCategories.map((category) => (
-                <SubCategoryButton key={category} category={category} current={subCategoryFilter} onClick={setSubCategoryFilter} />
-              ))}
-            </div>
+            {mainCategoryFilter !== "all" && (
+              <div className="mb-2 flex flex-wrap gap-2 pb-4">
+                {mainCategoryFilter === "spot" && spotSubCategories.map((category) => (
+                  <SubCategoryButton key={category} category={category} current={subCategoryFilter} onClick={setSubCategoryFilter} />
+                ))}
+                {mainCategoryFilter === "food" && foodSubCategories.map((category) => (
+                  <SubCategoryButton key={category} category={category} current={subCategoryFilter} onClick={setSubCategoryFilter} />
+                ))}
+                {mainCategoryFilter === "stay" && staySubCategories.map((category) => (
+                  <SubCategoryButton key={category} category={category} current={subCategoryFilter} onClick={setSubCategoryFilter} />
+                ))}
+              </div>
+            )}
 
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-sm font-black text-slate-800">장소 탐색</h3>
@@ -1622,29 +1614,6 @@ function getCategoryColor(category: PlaceCategory) {
   if (category === "food") return "#F59E0B";
   if (category === "stay") return "#8B5CF6";
   return GW_GREEN;
-}
-
-function TourDataStatusBadge({ source }: { source: "loading" | "tourapi" | "mixed" | "fallback" }) {
-  const label =
-    source === "tourapi"
-      ? "관광공사 TourAPI 연동"
-      : source === "mixed"
-        ? "공공 API + 보강 데이터"
-        : source === "loading"
-          ? "관광 데이터 불러오는 중"
-          : "샘플 데이터 표시 중";
-  const className =
-    source === "fallback"
-      ? "border-amber-100 bg-amber-50 text-amber-800"
-      : source === "loading"
-        ? "border-slate-100 bg-slate-50 text-slate-500"
-        : "border-blue-100 bg-blue-50 text-blue-700";
-
-  return (
-    <span className={`inline-flex items-center rounded-full border px-3 py-1.5 text-[10px] font-black ${className}`}>
-      {label}
-    </span>
-  );
 }
 
 function MobileWeatherInline({ weather }: { weather?: WeatherSummary }) {

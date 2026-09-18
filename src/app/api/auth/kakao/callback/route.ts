@@ -27,6 +27,7 @@ type KakaoUserResponse = {
     profile?: {
       nickname?: string;
       profile_image_url?: string;
+      thumbnail_image_url?: string;
     };
   };
 };
@@ -141,7 +142,7 @@ function normalizeKakaoUser(kakaoUser: KakaoUserResponse): KakaoSessionUser | nu
     id: String(kakaoUser.id),
     nickname,
     email: kakaoUser.kakao_account?.email,
-    profileImage: kakaoUser.kakao_account?.profile?.profile_image_url || kakaoUser.properties?.profile_image,
+    profileImage: kakaoUser.kakao_account?.profile?.profile_image_url || kakaoUser.kakao_account?.profile?.thumbnail_image_url || kakaoUser.properties?.profile_image,
   };
 }
 

@@ -1270,19 +1270,28 @@ export default function MobileHome({ initialPlaces }: { initialPlaces: Place[] }
           { id: "home", icon: <Search size={22} />, label: "탐색" },
           { id: "planner", icon: <NotebookPen size={22} />, label: "계획" },
           { id: "map", icon: <Map size={22} />, label: "경로" },
-          { id: "profile", icon: <User size={22} />, label: "MY" },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            aria-label={tab.label}
-            onClick={() => { if (tab.id === "planner") openPlanner(); else setActiveTab(tab.id === "profile" && !sessionUser ? "login" : tab.id as ActiveTab); }}
-            className={`flex h-14 w-14 flex-col items-center justify-center rounded-[1.2rem] transition-all duration-300 ${activeTab === tab.id ? "scale-105 bg-white shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
-            style={activeTab === tab.id ? { color: GW_BLUE } : {}}
-          >
-            {tab.icon}
-            {activeTab === tab.id && <span className="mt-1 text-[8px] font-black">{tab.label}</span>}
-          </button>
-        ))}
+          { id: "profile", icon: <User size={22} />, label: "프로필" },
+        ].map((tab) => {
+          const isProfileTab = tab.id === "profile";
+          const isActive = activeTab === tab.id;
+
+          return (
+            <button
+              key={tab.id}
+              aria-label={tab.label}
+              onClick={() => { if (tab.id === "planner") openPlanner(); else setActiveTab(tab.id === "profile" && !sessionUser ? "login" : tab.id as ActiveTab); }}
+              className={isProfileTab
+                ? "flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-white shadow-sm transition-transform duration-300 hover:scale-105"
+                : `flex h-14 w-14 flex-col items-center justify-center rounded-[1.2rem] transition-all duration-300 ${isActive ? "scale-105 bg-white shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
+              style={!isProfileTab && isActive ? { color: GW_BLUE } : {}}
+            >
+              {isProfileTab && sessionUser?.profileImage ? (
+                <span aria-hidden="true" className="h-full w-full bg-cover bg-center" style={{ backgroundImage: `url(${sessionUser.profileImage})` }} />
+              ) : tab.icon}
+              {isActive && !isProfileTab && <span className="mt-1 text-[8px] font-black">{tab.label}</span>}
+            </button>
+          );
+        })}
       </nav>
     </div>
   );

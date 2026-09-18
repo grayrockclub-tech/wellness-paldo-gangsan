@@ -13,7 +13,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
-  Filter,
+  NotebookPen,
   Leaf,
   Loader2,
   LogOut,
@@ -1278,7 +1278,7 @@ export default function MobileHome({ initialPlaces, initialSource }: { initialPl
       >
         {[
           { id: "home", icon: <Search size={22} />, label: "탐색" },
-          { id: "planner", icon: <Filter size={22} />, label: "계획" },
+          { id: "planner", icon: <NotebookPen size={22} />, label: "계획" },
           { id: "map", icon: <Map size={22} />, label: "경로" },
           { id: "profile", icon: <User size={22} />, label: "MY" },
         ].map((tab) => (

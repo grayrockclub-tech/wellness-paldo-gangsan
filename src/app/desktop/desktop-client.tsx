@@ -596,7 +596,7 @@ export default function DesktopClient({ initialPlaces }: { initialPlaces: Place[
                   {profileImage ? <span aria-hidden="true" className="h-full w-full bg-cover bg-center" style={{ backgroundImage: `url(${profileImage})` }} /> : <User size={19} />}
                 </Link>
               ) : (
-                <a href="/api/auth/kakao/start" className="flex items-center gap-2 rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 font-black text-[#005BAA] transition hover:bg-white">
+                <a href="/api/auth/kakao/start?next=/desktop" className="flex items-center gap-2 rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 font-black text-[#005BAA] transition hover:bg-white">
                   <User size={18} /> 로그인
                 </a>
               )}

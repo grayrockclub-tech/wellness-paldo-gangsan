@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
 
   const origin = request.nextUrl.origin;
   const state = createOAuthState();
+  const returnTo = getSafeReturnPath(request.nextUrl.searchParams.get("next"));
   const redirectUri = getKakaoRedirectUri(origin);
   const authorizeUrl = new URL("https://kauth.kakao.com/oauth/authorize");
   authorizeUrl.searchParams.set("client_id", kakaoRestApiKey);
@@ -34,6 +35,17 @@ export async function GET(request: NextRequest) {
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
   });
+  response.cookies.set(kakaoAuthCookies.oauthReturnTo, returnTo ?? "", {
+    httpOnly: true,
+    maxAge: returnTo ? kakaoAuthCookies.stateMaxAge : 0,
+    path: "/",
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
 
   return response;
+}
+
+function getSafeReturnPath(value: string | null) {
+  return value?.startsWith("/") && !value.startsWith("//") ? value : null;
 }

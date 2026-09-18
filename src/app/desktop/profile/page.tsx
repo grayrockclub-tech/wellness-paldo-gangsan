@@ -86,7 +86,7 @@ export default function DesktopProfilePage() {
                 {profileImage ? <span aria-hidden="true" className="h-full w-full bg-cover bg-center" style={{ backgroundImage: `url(${profileImage})` }} /> : <User size={19} />}
               </span>
             ) : (
-              <a href="/api/auth/kakao/start" className="flex items-center gap-2 rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 text-[#005BAA]"><User size={18} />로그인</a>
+              <a href="/api/auth/kakao/start?next=/desktop/profile" className="flex items-center gap-2 rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 text-[#005BAA]"><User size={18} />로그인</a>
             )}
           </nav>
           </div>
@@ -105,7 +105,7 @@ export default function DesktopProfilePage() {
                 <LogOut size={16} /> 로그아웃
               </button>
             ) : (
-              <a href="/api/auth/kakao/start" className="mt-7 flex w-full items-center justify-center gap-2 rounded-lg bg-[#FEE500] px-4 py-3 text-sm font-black text-[#191919] transition hover:bg-[#FEE500]/90">
+              <a href="/api/auth/kakao/start?next=/desktop/profile" className="mt-7 flex w-full items-center justify-center gap-2 rounded-lg bg-[#FEE500] px-4 py-3 text-sm font-black text-[#191919] transition hover:bg-[#FEE500]/90">
                 <User size={16} /> 카카오 로그인
               </a>
             )}

@@ -36,7 +36,8 @@ export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
   const state = request.nextUrl.searchParams.get("state");
   const savedState = request.cookies.get(kakaoAuthCookies.oauthState)?.value;
-  const redirectTarget = new URL("/?view=mobile&tab=profile", request.nextUrl.origin);
+  const returnTo = getSafeReturnPath(request.cookies.get(kakaoAuthCookies.oauthReturnTo)?.value) ?? "/?view=mobile&tab=home";
+  const redirectTarget = new URL(returnTo, request.nextUrl.origin);
 
   if (!code || !state || !savedState || state !== savedState) {
     redirectTarget.searchParams.set("auth", "failed");
@@ -62,7 +63,6 @@ export async function GET(request: NextRequest) {
     const user = normalizeKakaoUser(kakaoUser);
     if (!user) throw new Error("Kakao user profile is empty");
 
-    redirectTarget.searchParams.set("tab", "home");
     const response = clearStateCookie(NextResponse.redirect(redirectTarget));
     response.cookies.set(
       kakaoAuthCookies.session,
@@ -151,5 +151,13 @@ function clearStateCookie(response: NextResponse) {
     maxAge: 0,
     path: "/",
   });
+  response.cookies.set(kakaoAuthCookies.oauthReturnTo, "", {
+    maxAge: 0,
+    path: "/",
+  });
   return response;
+}
+
+function getSafeReturnPath(value?: string) {
+  return value?.startsWith("/") && !value.startsWith("//") ? value : null;
 }

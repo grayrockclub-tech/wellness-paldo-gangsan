@@ -14,12 +14,14 @@ export type KakaoSession = {
 
 const SESSION_COOKIE_NAME = "wellness_session";
 const OAUTH_STATE_COOKIE_NAME = "kakao_oauth_state";
+const OAUTH_RETURN_TO_COOKIE_NAME = "kakao_oauth_return_to";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 const STATE_MAX_AGE_SECONDS = 60 * 10;
 
 export const kakaoAuthCookies = {
   session: SESSION_COOKIE_NAME,
   oauthState: OAUTH_STATE_COOKIE_NAME,
+  oauthReturnTo: OAUTH_RETURN_TO_COOKIE_NAME,
   sessionMaxAge: SESSION_MAX_AGE_SECONDS,
   stateMaxAge: STATE_MAX_AGE_SECONDS,
 };

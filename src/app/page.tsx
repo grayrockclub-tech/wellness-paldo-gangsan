@@ -1325,7 +1325,10 @@ export default function Home() {
         </div>
       )}
 
-      <nav className="glass-nav fixed bottom-6 left-1/2 z-[90] flex w-[90%] max-w-[340px] -translate-x-1/2 items-center justify-between rounded-[2rem] px-2 py-2">
+      <nav
+        className="glass-nav fixed bottom-0 left-0 right-0 z-[90] flex w-full items-center justify-around rounded-t-[2rem] px-3 pt-2"
+        style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
+      >
         {[
           { id: "home", icon: <Search size={22} />, label: "탐색" },
           { id: "planner", icon: <Filter size={22} />, label: "계획" },

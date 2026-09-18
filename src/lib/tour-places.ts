@@ -55,7 +55,7 @@ type TourDetailItem = {
   overview?: string;
 };
 
-type WellnessPlacesResult = {
+export type WellnessPlacesResult = {
   source: "tourapi" | "mixed" | "fallback";
   generatedAt: string;
   places: WellnessPlace[];

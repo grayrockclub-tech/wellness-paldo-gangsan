@@ -1,20 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { Leaf, Map, Menu, Trash2, User } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Leaf, LogOut, Map, Menu, Trash2, User } from "lucide-react";
 import { useEffect, useState } from "react";
 
 type Place = { id: string; name: string; category: "spot" | "food" | "stay" };
 type CourseItem = Place | { type: "travel" };
 type SavedPlan = { id: string; date: string; course: CourseItem[] };
-type SessionResponse = { authenticated: boolean; user: { nickname: string } | null };
+type SessionResponse = { authenticated: boolean; user: { nickname: string; profileImage?: string } | null };
 
 function isPlace(item: CourseItem): item is Place {
   return "name" in item;
 }
 
 export default function DesktopProfilePage() {
+  const router = useRouter();
   const [nickname, setNickname] = useState("");
+  const [profileImage, setProfileImage] = useState<string | null>(null);
   const [plans, setPlans] = useState<SavedPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
@@ -26,6 +29,7 @@ export default function DesktopProfilePage() {
         const session = await sessionResponse.json() as SessionResponse;
         if (!session.authenticated) return;
         setNickname(session.user?.nickname ?? "사용자");
+        setProfileImage(session.user?.profileImage ?? null);
 
         const routesResponse = await fetch("/api/routes", { cache: "no-store" });
         if (!routesResponse.ok) throw new Error("Failed to load routes");
@@ -39,6 +43,14 @@ export default function DesktopProfilePage() {
     }
     void loadProfile();
   }, []);
+
+  async function handleLogout() {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } finally {
+      router.replace("/desktop");
+    }
+  }
 
   async function deletePlan(plan: SavedPlan) {
     if (!window.confirm(`“${plan.course.filter(isPlace).map((place) => place.name).join(", ")}” 루트를 삭제할까요?`)) return;
@@ -73,10 +85,15 @@ export default function DesktopProfilePage() {
 
         <section className="mx-auto grid max-w-[1760px] gap-6 px-6 py-8 lg:grid-cols-[300px_1fr]">
           <aside className="rounded-2xl bg-gradient-to-br from-emerald-600 to-blue-700 p-7 text-white shadow-sm">
-            <span className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15"><User size={28} /></span>
+            <span className="mb-5 flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-white/15">
+              {profileImage ? <span aria-hidden="true" className="h-full w-full bg-cover bg-center" style={{ backgroundImage: `url(${profileImage})` }} /> : <User size={28} />}
+            </span>
             <p className="text-xs font-black tracking-[0.16em] text-emerald-100">MY WELLNESS ROUTE</p>
             <h1 className="mt-2 text-2xl font-black">{nickname ? `${nickname}님` : "MY"}</h1>
             <p className="mt-3 text-sm font-bold text-white/80">카카오 로그인 연결됨</p>
+            <button type="button" onClick={() => void handleLogout()} className="mt-7 flex w-full items-center justify-center gap-2 rounded-lg border border-white/30 bg-white/10 px-4 py-3 text-sm font-black text-white transition hover:bg-white/20">
+              <LogOut size={16} /> 로그아웃
+            </button>
           </aside>
 
           <section className="rounded-2xl border border-[#d3dfd4] bg-white p-7 shadow-sm">

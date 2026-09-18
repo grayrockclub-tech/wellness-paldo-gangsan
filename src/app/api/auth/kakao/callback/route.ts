@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
   const state = request.nextUrl.searchParams.get("state");
   const savedState = request.cookies.get(kakaoAuthCookies.oauthState)?.value;
-  const returnTo = getSafeReturnPath(request.cookies.get(kakaoAuthCookies.oauthReturnTo)?.value) ?? "/?view=mobile&tab=home";
+  const returnTo = getSafeReturnPath(request.cookies.get(kakaoAuthCookies.oauthReturnTo)?.value) ?? "/?tab=home";
   const redirectTarget = new URL(returnTo, request.nextUrl.origin);
 
   if (!code || !state || !savedState || state !== savedState) {

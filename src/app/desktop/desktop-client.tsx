@@ -503,7 +503,7 @@ export default function DesktopClient({ initialPlaces }: { initialPlaces: Place[
     if (!generatedCourse) return;
     if (!isAuthenticated) {
       alert("루트를 저장하려면 카카오 로그인이 필요합니다.");
-      router.push("/?view=mobile&tab=login");
+      router.push("/api/auth/kakao/start?next=/desktop");
       return;
     }
 

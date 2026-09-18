@@ -23,7 +23,6 @@ export async function GET(request: NextRequest) {
   authorizeUrl.searchParams.set("client_id", kakaoRestApiKey);
   authorizeUrl.searchParams.set("redirect_uri", redirectUri);
   authorizeUrl.searchParams.set("response_type", "code");
-  authorizeUrl.searchParams.set("scope", "profile_image");
   authorizeUrl.searchParams.set("state", state);
 
   const response = NextResponse.redirect(authorizeUrl);

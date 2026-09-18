@@ -787,8 +787,6 @@ export default function Home() {
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <span className="rounded-lg bg-white/70 px-2 py-1 text-[10px] font-black" style={{ color: GW_BLUE }}>{shiftTimeRange(item.timeRange, originTravelMinutes)}</span>
                   <div className="flex items-center gap-1">
-                    <button type="button" onClick={(event) => { event.stopPropagation(); moveGeneratedPlace(item.id, -1); }} disabled={generatedCoursePlaces.findIndex((place) => place.id === item.id) === 0} className="rounded-lg border border-white/80 bg-white/70 p-1.5 text-slate-500 disabled:opacity-30" aria-label={`${item.name} 위로 이동`}><ChevronUp size={13} /></button>
-                    <button type="button" onClick={(event) => { event.stopPropagation(); moveGeneratedPlace(item.id, 1); }} disabled={generatedCoursePlaces.findIndex((place) => place.id === item.id) === generatedCoursePlaces.length - 1} className="rounded-lg border border-white/80 bg-white/70 p-1.5 text-slate-500 disabled:opacity-30" aria-label={`${item.name} 아래로 이동`}><ChevronDown size={13} /></button>
                     <button type="button" onClick={(event) => { event.stopPropagation(); removeGeneratedPlace(item.id); }} className="rounded-lg border border-white/80 bg-white/70 p-1.5 text-slate-500" aria-label={`${item.name} 일정에서 삭제`}><X size={13} /></button>
                     {travelMode === "drive" && <button type="button" onClick={(event) => { event.stopPropagation(); handleKakaoMapSearch(item.name); }} className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-black text-white" style={{ backgroundColor: GW_BLUE }}><Search size={11} /> 카카오맵</button>}
                   </div>
@@ -796,6 +794,10 @@ export default function Home() {
                 <button type="button" onClick={() => setSelectedMapPlaceId(item.id)} className="text-left text-sm font-black text-slate-800">{item.name}</button>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-slate-500">
                   <span>{item.category === "food" ? "건강 맛집" : item.category === "stay" ? "힐링 숙소" : "웰니스 스팟"} · {item.region}</span>
+                </div>
+                <div className="mt-3 flex justify-end gap-1">
+                  <button type="button" onClick={(event) => { event.stopPropagation(); moveGeneratedPlace(item.id, -1); }} disabled={generatedCoursePlaces.findIndex((place) => place.id === item.id) === 0} className="rounded-lg border border-white/80 bg-white/70 p-1.5 text-slate-500 disabled:opacity-30" aria-label={`${item.name} 위로 이동`}><ChevronUp size={13} /></button>
+                  <button type="button" onClick={(event) => { event.stopPropagation(); moveGeneratedPlace(item.id, 1); }} disabled={generatedCoursePlaces.findIndex((place) => place.id === item.id) === generatedCoursePlaces.length - 1} className="rounded-lg border border-white/80 bg-white/70 p-1.5 text-slate-500 disabled:opacity-30" aria-label={`${item.name} 아래로 이동`}><ChevronDown size={13} /></button>
                 </div>
               </article>
             ) : (

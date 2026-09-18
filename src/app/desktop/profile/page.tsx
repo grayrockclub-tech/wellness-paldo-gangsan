@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Leaf, LogOut, Map, Menu, Trash2, User } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -15,8 +14,8 @@ function isPlace(item: CourseItem): item is Place {
 }
 
 export default function DesktopProfilePage() {
-  const router = useRouter();
   const [nickname, setNickname] = useState("");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [plans, setPlans] = useState<SavedPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -28,6 +27,7 @@ export default function DesktopProfilePage() {
         const sessionResponse = await fetch("/api/auth/session", { cache: "no-store" });
         const session = await sessionResponse.json() as SessionResponse;
         if (!session.authenticated) return;
+        setIsAuthenticated(true);
         setNickname(session.user?.nickname ?? "사용자");
         setProfileImage(session.user?.profileImage ?? null);
 
@@ -48,7 +48,10 @@ export default function DesktopProfilePage() {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } finally {
-      router.replace("/desktop");
+      setIsAuthenticated(false);
+      setNickname("");
+      setProfileImage(null);
+      setPlans([]);
     }
   }
 
@@ -78,22 +81,34 @@ export default function DesktopProfilePage() {
           </Link>
           <nav className="flex items-center gap-3 text-sm font-black">
             <Link href="/desktop" className="flex items-center gap-2 rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 text-[#526158]"><Menu size={18} />루트 계획</Link>
-            <span className="flex items-center gap-2 rounded-lg bg-[#005BAA] px-4 py-3 text-white"><User size={18} />MY</span>
+            {isAuthenticated ? (
+              <span aria-label="MY" className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-[#d3dfd4] bg-white text-[#005BAA]">
+                {profileImage ? <span aria-hidden="true" className="h-full w-full bg-cover bg-center" style={{ backgroundImage: `url(${profileImage})` }} /> : <User size={19} />}
+              </span>
+            ) : (
+              <a href="/api/auth/kakao/start" className="flex items-center gap-2 rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 text-[#005BAA]"><User size={18} />로그인</a>
+            )}
           </nav>
           </div>
         </header>
 
         <section className="mx-auto grid max-w-[1760px] gap-6 px-6 py-8 lg:grid-cols-[300px_1fr]">
           <aside className="rounded-2xl bg-gradient-to-br from-emerald-600 to-blue-700 p-7 text-white shadow-sm">
-            <span className="mb-5 flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-white/15">
+            <span className="mb-5 flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-white/15">
               {profileImage ? <span aria-hidden="true" className="h-full w-full bg-cover bg-center" style={{ backgroundImage: `url(${profileImage})` }} /> : <User size={28} />}
             </span>
             <p className="text-xs font-black tracking-[0.16em] text-emerald-100">MY WELLNESS ROUTE</p>
-            <h1 className="mt-2 text-2xl font-black">{nickname ? `${nickname}님` : "MY"}</h1>
-            <p className="mt-3 text-sm font-bold text-white/80">카카오 로그인 연결됨</p>
-            <button type="button" onClick={() => void handleLogout()} className="mt-7 flex w-full items-center justify-center gap-2 rounded-lg border border-white/30 bg-white/10 px-4 py-3 text-sm font-black text-white transition hover:bg-white/20">
-              <LogOut size={16} /> 로그아웃
-            </button>
+            <h1 className="mt-2 text-2xl font-black">{isAuthenticated ? `${nickname}님` : "로그인"}</h1>
+            <p className="mt-3 text-sm font-bold text-white/80">{isAuthenticated ? "카카오 로그인 연결됨" : "로그인하면 저장한 루트를 볼 수 있습니다."}</p>
+            {isAuthenticated ? (
+              <button type="button" onClick={() => void handleLogout()} className="mt-7 flex w-full items-center justify-center gap-2 rounded-lg border border-white/30 bg-white/10 px-4 py-3 text-sm font-black text-white transition hover:bg-white/20">
+                <LogOut size={16} /> 로그아웃
+              </button>
+            ) : (
+              <a href="/api/auth/kakao/start" className="mt-7 flex w-full items-center justify-center gap-2 rounded-lg bg-[#FEE500] px-4 py-3 text-sm font-black text-[#191919] transition hover:bg-[#FEE500]/90">
+                <User size={16} /> 카카오 로그인
+              </a>
+            )}
           </aside>
 
           <section className="rounded-2xl border border-[#d3dfd4] bg-white p-7 shadow-sm">

@@ -95,7 +95,7 @@ type Place = {
 type PlaceCourseItem = BuiltPlaceCourseItem<Place>;
 type CourseItem = WellnessCourseItem<Place>;
 
-type SessionResponse = { authenticated: boolean };
+type SessionResponse = { authenticated: boolean; user: { profileImage?: string } | null };
 type SavedPlan = {
   id: string;
   course: CourseItem[];
@@ -302,6 +302,7 @@ export default function DesktopClient({ initialPlaces }: { initialPlaces: Place[
   const [transitLegs, setTransitLegs] = useState<Record<number, TransitRoute>>({});
   const [isPlanning, setIsPlanning] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
   const [isSavingCourse, setIsSavingCourse] = useState(false);
   const [generatedCourse, setGeneratedCourse] = useState<CourseItem[] | null>(null);
   const [weatherByPlaceId, setWeatherByPlaceId] = useState<Record<string, WeatherSummary>>({});
@@ -310,9 +311,15 @@ export default function DesktopClient({ initialPlaces }: { initialPlaces: Place[
 
   useEffect(() => {
     fetch("/api/auth/session", { cache: "no-store" })
-      .then(async (response) => response.ok ? await response.json() as SessionResponse : { authenticated: false })
-      .then((session) => setIsAuthenticated(session.authenticated))
-      .catch(() => setIsAuthenticated(false));
+      .then(async (response) => response.ok ? await response.json() as SessionResponse : { authenticated: false, user: null })
+      .then((session) => {
+        setIsAuthenticated(session.authenticated);
+        setProfileImage(session.user?.profileImage ?? null);
+      })
+      .catch(() => {
+        setIsAuthenticated(false);
+        setProfileImage(null);
+      });
   }, []);
 
   useEffect(() => {
@@ -584,13 +591,15 @@ export default function DesktopClient({ initialPlaces }: { initialPlaces: Place[
                 루트 계획
                 {mustGoSpots.length > 0 && <span className="rounded-md bg-white/20 px-2 py-0.5 text-xs">{mustGoSpots.length}개 선택</span>}
               </button>
-              <Link
-                href="/desktop/profile"
-                className="flex items-center gap-2 rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 font-black text-[#005BAA] transition hover:bg-white"
-              >
-                <User size={18} />
-                MY
-              </Link>
+              {isAuthenticated ? (
+                <Link href="/desktop/profile" aria-label="MY" className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-[#d3dfd4] bg-white text-[#005BAA] transition hover:bg-[#f7faf6]">
+                  {profileImage ? <span aria-hidden="true" className="h-full w-full bg-cover bg-center" style={{ backgroundImage: `url(${profileImage})` }} /> : <User size={19} />}
+                </Link>
+              ) : (
+                <a href="/api/auth/kakao/start" className="flex items-center gap-2 rounded-lg border border-[#d3dfd4] bg-[#fbfcf8] px-4 py-3 font-black text-[#005BAA] transition hover:bg-white">
+                  <User size={18} /> 로그인
+                </a>
+              )}
             </div>
           </div>
 

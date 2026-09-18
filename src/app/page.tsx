@@ -796,7 +796,6 @@ export default function Home() {
                 <button type="button" onClick={() => setSelectedMapPlaceId(item.id)} className="text-left text-sm font-black text-slate-800">{item.name}</button>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-slate-500">
                   <span>{item.category === "food" ? "건강 맛집" : item.category === "stay" ? "힐링 숙소" : "웰니스 스팟"} · {item.region}</span>
-                  <WeatherMiniBadge weather={weatherByPlaceId[item.id]} />
                 </div>
               </article>
             ) : (
@@ -1027,7 +1026,6 @@ export default function Home() {
                         <span className="shrink-0 whitespace-nowrap rounded-md border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700">
                           {place.category === "food" ? "맛집" : place.category === "stay" ? "숙소" : "스팟"}
                         </span>
-                        {weatherByPlaceId[place.id] && <WeatherMiniBadge weather={weatherByPlaceId[place.id]} />}
                       </div>
                       <h4 className="mb-1 text-[14px] font-bold leading-tight text-slate-800">{place.name}</h4>
                       <div>
@@ -1301,9 +1299,6 @@ export default function Home() {
               <h3 className="mb-3 text-xl font-black leading-tight text-slate-800">{viewingPlace.name}</h3>
               <p className="mb-1 text-[10px] font-black text-slate-400">장소 설명</p>
               <p className="mb-4 text-[13px] font-medium leading-relaxed text-slate-600">{viewingPlace.desc}</p>
-              <div className="mb-5 flex flex-wrap items-center gap-2">
-                <WeatherMiniBadge weather={weatherByPlaceId[viewingPlace.id]} size="md" />
-              </div>
               <WeatherInsightCard weather={weatherByPlaceId[viewingPlace.id]} compact />
               <p className="mb-8 flex items-center text-[11px] font-bold text-slate-500">
                 <MapPin size={14} className="mr-1.5" style={{ color: GW_GREEN }} /> {viewingPlace.addr}
@@ -1702,26 +1697,6 @@ function TourDataStatusBadge({ source }: { source: "loading" | "tourapi" | "mixe
   );
 }
 
-function WeatherMiniBadge({ weather, size = "sm" }: { weather?: WeatherSummary; size?: "sm" | "md" }) {
-  const className = weather
-    ? {
-        good: "border-emerald-100 bg-emerald-50 text-emerald-700",
-        normal: "border-blue-100 bg-blue-50 text-blue-700",
-        caution: "border-amber-100 bg-amber-50 text-amber-800",
-      }[weather.activityLevel]
-    : "border-slate-100 bg-slate-50 text-slate-500";
-
-  return (
-    <span
-      className={`shrink-0 whitespace-nowrap rounded-md border font-black ${
-        size === "md" ? "px-3 py-1.5 text-[10px]" : "px-2 py-0.5 text-[9px]"
-      } ${className}`}
-    >
-      {weather ? (weather.source === "weatherapi" ? "기상청 API" : "기상 예비값") : "기상 확인 전"}
-    </span>
-  );
-}
-
 function MobileWeatherInline({ weather }: { weather?: WeatherSummary }) {
   const levelClass = weather
     ? {
@@ -1735,7 +1710,6 @@ function MobileWeatherInline({ weather }: { weather?: WeatherSummary }) {
     <div className={`rounded-2xl border px-4 py-3 ${levelClass}`}>
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <p className="text-[10px] font-black">기상 기반 방문 적합도</p>
-        <WeatherMiniBadge weather={weather} />
       </div>
       {weather ? (
         <>
@@ -1763,11 +1737,8 @@ function WeatherInsightCard({ weather, compact = false }: { weather?: WeatherSum
 
   return (
     <section className={`mb-6 rounded-2xl border px-4 py-3 ${levelClass}`}>
-      <div className="mb-2 flex items-center justify-between gap-2">
+      <div className="mb-2">
         <p className="text-[10px] font-black">기상 기반 방문 적합도</p>
-        <span className="rounded-full bg-white/70 px-2 py-0.5 text-[9px] font-black">
-          {weather ? (weather.source === "weatherapi" ? "기상청 API" : "예비값") : "확인 중"}
-        </span>
       </div>
       {weather ? (
         <>

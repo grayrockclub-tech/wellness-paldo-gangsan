@@ -1280,11 +1280,8 @@ function WeatherInsightCard({ weather }: { weather?: WeatherSummary }) {
 
   return (
     <section className={`mt-4 shrink-0 rounded-lg border px-4 py-3 ${levelClass}`}>
-      <div className="mb-2 flex items-center justify-between gap-2">
+      <div className="mb-2">
         <p className="text-[11px] font-black">기상 기반 방문 적합도</p>
-        <span className="rounded-md bg-white/70 px-2 py-1 text-[10px] font-black">
-          {weather ? (weather.source === "weatherapi" ? "기상청 API" : "예비값") : "확인 중"}
-        </span>
       </div>
       {weather ? (
         <>

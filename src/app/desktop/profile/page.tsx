@@ -73,7 +73,7 @@ export default function DesktopProfilePage() {
         <header className="sticky top-0 z-30 border-b border-[#d3dfd4] bg-white/95 px-6 py-4 backdrop-blur">
           <div className="flex flex-wrap items-center justify-between gap-4">
           <Link href="/desktop" className="flex items-center gap-3">
-            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#005BAA] text-white"><Leaf size={26} /></span>
+            <Leaf size={28} className="text-[#0DB14B]" />
             <span><strong className="block text-lg text-[#005BAA]">웰니스 강원</strong><small className="font-bold text-[#5f6f66]">원스톱 치유 여행</small></span>
           </Link>
           <nav className="flex items-center gap-3 text-sm font-black">

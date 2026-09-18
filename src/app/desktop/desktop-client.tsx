@@ -565,9 +565,7 @@ export default function DesktopClient({ initialPlaces }: { initialPlaces: Place[
         <header className="sticky top-0 z-30 border-b border-[#d3dfd4] bg-white/95 px-6 py-4 backdrop-blur">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <a href="https://wellness-paldo-gangsan.vercel.app" className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl text-white" style={{ backgroundColor: GW_BLUE }}>
-                <Leaf size={26} />
-              </div>
+              <Leaf size={28} style={{ color: GW_GREEN }} />
               <div>
                 <h1 className="text-lg font-black tracking-normal" style={{ color: GW_BLUE }}>
                   웰니스 강원

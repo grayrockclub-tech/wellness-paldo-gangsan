@@ -875,19 +875,17 @@ export default function MobileHome({ initialPlaces }: { initialPlaces: Place[] }
 
       <main className="relative z-10 pb-32">
         <header className="glass-nav sticky top-0 z-40 rounded-b-[2rem] px-6 pb-3 pt-3">
-          <a href="https://wellness-paldo-gangsan.vercel.app" className="flex items-center text-2xl font-black tracking-tighter" style={{ color: GW_BLUE }}>
-            <Leaf className="mr-2" size={24} style={{ color: GW_GREEN }} /> 웰니스 강원
+          <a href="https://wellness-paldo-gangsan.vercel.app" className="flex items-center gap-2" style={{ color: GW_BLUE }}>
+            <Leaf size={24} style={{ color: GW_GREEN }} />
+            <span>
+              <strong className="block text-2xl font-black tracking-tighter">웰니스 강원</strong>
+              <small className="block text-[10px] font-bold text-[#5f6f66]">원스톱 치유 여행</small>
+            </span>
           </a>
         </header>
 
         {activeTab === "home" && (
           <div className="p-6">
-            <div className="mb-6">
-              <h2 className="text-2xl font-black tracking-tight" style={{ color: GW_BLUE }}>
-                힐링스팟·맛집·숙소를 원스톱으로
-              </h2>
-            </div>
-
             <div className="mb-4 grid grid-cols-2 gap-2 min-[390px]:grid-cols-4">
               {[
                 { id: "all", label: "전체" },

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { buildWellnessCourse, shiftTimeRange, type PlaceCourseItem as BuiltPlaceCourseItem, type WellnessCourseItem } from "@/lib/course-builder";
 import type { TransitOrigin, TransitRoute } from "@/lib/kakao-transit";
@@ -844,7 +845,7 @@ export default function MobileHome({ initialPlaces }: { initialPlaces: Place[] }
         <div className="relative z-10 mx-auto grid w-full max-w-md items-center gap-8 p-8 text-center lg:max-w-6xl lg:grid-cols-[1fr_380px] lg:gap-16 lg:p-12 lg:text-left">
           <section className="lg:pr-8">
             <div className="glass-panel mx-auto mb-8 flex h-24 w-24 items-center justify-center rounded-[2.5rem] border-white lg:mx-0 lg:h-28 lg:w-28">
-              <Leaf size={48} style={{ color: GW_GREEN }} />
+              <Image src="/wellness-logo.png" alt="웰니스 강원 로고" width={64} height={34} className="h-[34px] w-16 object-contain" priority />
             </div>
             <p className="mb-3 text-xs font-black uppercase tracking-[0.2em]" style={{ color: GW_GREEN }}>
               강원특별자치도 웰니스 루트
@@ -895,7 +896,7 @@ export default function MobileHome({ initialPlaces }: { initialPlaces: Place[] }
       <main className="relative z-10 pb-32">
         <header className="glass-nav sticky top-0 z-40 rounded-b-[2rem] px-6 pb-3 pt-3">
           <a href="https://wellness-paldo-gangsan.vercel.app" className="flex items-center gap-2" style={{ color: GW_BLUE }}>
-            <Leaf size={24} style={{ color: GW_GREEN }} />
+            <Image src="/wellness-logo.png" alt="웰니스 강원 로고" width={48} height={25} className="h-[25px] w-12 shrink-0 object-contain" priority />
             <span>
               <strong className="block text-2xl font-black tracking-tighter">웰니스 강원</strong>
               <small className="block text-[10px] font-bold text-[#5f6f66]">원스톱 치유 여행</small>

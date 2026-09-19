@@ -24,6 +24,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { buildWellnessCourse, shiftTimeRange, type PlaceCourseItem as BuiltPlaceCourseItem, type WellnessCourseItem } from "@/lib/course-builder";
@@ -572,7 +573,7 @@ export default function DesktopClient({ initialPlaces }: { initialPlaces: Place[
         <header className="sticky top-0 z-30 border-b border-[#d3dfd4] bg-white/95 px-6 py-4 backdrop-blur">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <a href="https://wellness-paldo-gangsan.vercel.app" className="flex items-center gap-3">
-              <Leaf size={28} style={{ color: GW_GREEN }} />
+              <Image src="/wellness-logo.png" alt="웰니스 강원 로고" width={52} height={28} className="h-7 w-[52px] shrink-0 object-contain" priority />
               <div>
                 <h1 className="text-lg font-black tracking-normal" style={{ color: GW_BLUE }}>
                   웰니스 강원

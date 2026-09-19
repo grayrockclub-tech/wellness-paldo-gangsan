@@ -1,6 +1,7 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { Metadata } from "next";
-import { Leaf, MapPin, Route } from "lucide-react";
+import { MapPin, Route } from "lucide-react";
 import { notFound } from "next/navigation";
 import { ensureSavedRoutesTable } from "@/lib/neon-db";
 import { SaveSharedRouteButton } from "@/components/save-shared-route-button";
@@ -65,7 +66,7 @@ export default async function SharedRoutePage({ params }: { params: Promise<{ sh
     <main className="min-h-screen bg-[#eef5ef] px-4 py-8 text-[#17211b] sm:px-6 sm:py-12">
       <section className="mx-auto max-w-2xl overflow-hidden rounded-[2rem] border border-[#d7e5d9] bg-white shadow-xl shadow-emerald-950/5">
         <header className="bg-gradient-to-br from-emerald-600 to-blue-700 px-6 py-8 text-white sm:px-10">
-          <Link href="/" className="inline-flex items-center gap-2 text-sm font-black text-white/90"><Leaf size={19} /> 웰니스 강원</Link>
+          <Link href="/" className="inline-flex items-center gap-2 text-sm font-black text-white/90"><Image src="/wellness-logo.png" alt="웰니스 강원 로고" width={38} height={20} className="h-5 w-[38px] object-contain brightness-0 invert" /> 웰니스 강원</Link>
           <p className="mt-8 text-xs font-black tracking-[0.16em] text-emerald-100">SHARED WELLNESS ROUTE</p>
           <h1 className="mt-2 text-2xl font-black sm:text-3xl">{title}</h1>
           <p className="mt-3 text-sm font-bold text-white/80">{date} 생성 · {plan.travelMode === "drive" ? "자동차" : "대중교통"} 이동</p>

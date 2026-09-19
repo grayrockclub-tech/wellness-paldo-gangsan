@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Leaf, LogOut, Map, Menu, Trash2, User } from "lucide-react";
+import Image from "next/image";
+import { LogOut, Map, Menu, Trash2, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { KakaoShareButton } from "@/components/kakao-share-button";
 
@@ -77,7 +78,7 @@ export default function DesktopProfilePage() {
         <header className="sticky top-0 z-30 border-b border-[#d3dfd4] bg-white/95 px-6 py-4 backdrop-blur">
           <div className="flex flex-wrap items-center justify-between gap-4">
           <Link href="/desktop" className="flex items-center gap-3">
-            <Leaf size={28} className="text-[#0DB14B]" />
+            <Image src="/wellness-logo.png" alt="웰니스 강원 로고" width={52} height={28} className="h-7 w-[52px] shrink-0 object-contain" priority />
             <span><strong className="block text-lg text-[#005BAA]">웰니스 강원</strong><small className="font-bold text-[#5f6f66]">원스톱 치유 여행</small></span>
           </Link>
           <nav className="flex items-center gap-3 text-sm font-black">

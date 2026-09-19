@@ -1178,12 +1178,12 @@ export default function MobileHome({ initialPlaces }: { initialPlaces: Place[] }
                 <div className="space-y-4">
                   {savedPlans.length > 0 ? savedPlans.map((plan) => (
                     <div key={plan.id} className="rounded-[1.5rem] border border-white/70 bg-white/50 p-5 shadow-sm">
-                      <div className="mb-4 flex items-center justify-between gap-2">
-                        <span className="rounded-md border border-white/60 bg-white/50 px-2.5 py-1 text-[10px] font-black text-slate-500">{plan.date} 생성</span>
-                        <div className="flex flex-wrap items-center justify-end gap-2">
-                          <button onClick={() => openSavedPlan(plan)} className="text-[10px] font-black" style={{ color: GW_BLUE }}>루트 보기 &rarr;</button>
+                      <div className="mb-4">
+                        <span className="inline-flex whitespace-nowrap rounded-md border border-white/60 bg-white/50 px-2.5 py-1 text-[10px] font-black text-slate-500">{plan.date} 생성</span>
+                        <div className="mt-3 flex items-center justify-end gap-2">
+                          <button onClick={() => openSavedPlan(plan)} className="whitespace-nowrap px-1 text-[10px] font-black" style={{ color: GW_BLUE }}>루트 보기 &rarr;</button>
                           <KakaoShareButton routeId={plan.id} />
-                          <button type="button" onClick={() => void deleteSavedPlan(plan)} disabled={deletingPlanId === plan.id} className="flex items-center gap-1 rounded-lg border border-rose-200 bg-white/70 px-2 py-2 text-[10px] font-black text-rose-700 disabled:opacity-50" aria-label="저장된 루트 삭제">
+                          <button type="button" onClick={() => void deleteSavedPlan(plan)} disabled={deletingPlanId === plan.id} className="flex shrink-0 items-center gap-1 rounded-lg border border-rose-200 bg-white/70 px-2 py-2 text-[10px] font-black text-rose-700 disabled:opacity-50" aria-label="저장된 루트 삭제">
                             <Trash2 size={13} />{deletingPlanId === plan.id ? "삭제 중" : "삭제"}
                           </button>
                         </div>

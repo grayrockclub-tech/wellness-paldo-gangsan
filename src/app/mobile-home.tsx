@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { buildWellnessCourse, shiftTimeRange, type PlaceCourseItem as BuiltPlaceCourseItem, type WellnessCourseItem } from "@/lib/course-builder";
 import type { TransitOrigin, TransitRoute } from "@/lib/kakao-transit";
 import { getKakaoDrivingRouteUrl, getKakaoMapSearchUrl } from "@/lib/kakao-map-links";
+import { KakaoShareButton } from "@/components/kakao-share-button";
 import {
   BedDouble,
   Bus,
@@ -1159,11 +1160,12 @@ export default function MobileHome({ initialPlaces }: { initialPlaces: Place[] }
                 <div className="space-y-4">
                   {savedPlans.length > 0 ? savedPlans.map((plan) => (
                     <div key={plan.id} className="rounded-[1.5rem] border border-white/70 bg-white/50 p-5 shadow-sm">
-                      <div className="mb-4 flex items-center justify-between">
+                      <div className="mb-4 flex items-center justify-between gap-2">
                         <span className="rounded-md border border-white/60 bg-white/50 px-2.5 py-1 text-[10px] font-black text-slate-500">{plan.date} 생성</span>
-                        <button onClick={() => openSavedPlan(plan)} className="text-[10px] font-black" style={{ color: GW_BLUE }}>
-                          루트 보기 &rarr;
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => openSavedPlan(plan)} className="text-[10px] font-black" style={{ color: GW_BLUE }}>루트 보기 &rarr;</button>
+                          <KakaoShareButton routeId={plan.id} routeTitle={plan.course.filter(isPlaceCourseItem).map((place) => place.name).slice(0, 2).join(" · ") || "웰니스 원스톱 루트"} />
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                         {plan.course.filter(isPlaceCourseItem).map((place) => (

@@ -16,5 +16,9 @@ export async function ensureSavedRoutesTable() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+  await sql`
+    ALTER TABLE saved_routes
+    ADD COLUMN IF NOT EXISTS share_id TEXT UNIQUE
+  `;
   return sql;
 }

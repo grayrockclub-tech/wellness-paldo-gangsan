@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Leaf, LogOut, Map, Menu, Trash2, User } from "lucide-react";
 import { useEffect, useState } from "react";
+import { KakaoShareButton } from "@/components/kakao-share-button";
 
 type Place = { id: string; name: string; category: "spot" | "food" | "stay" };
 type CourseItem = Place | { type: "travel" };
@@ -119,7 +120,7 @@ export default function DesktopProfilePage() {
             <div className="mt-7 space-y-4">
               {isLoading ? <p className="py-16 text-center text-sm font-bold text-[#75837b]">저장된 루트를 불러오는 중입니다.</p> : plans.length > 0 ? plans.map((plan) => (
                 <article key={plan.id} className="rounded-xl border border-[#dce6dc] bg-[#fbfcf8] p-5">
-                  <div className="flex items-center justify-between gap-4"><p className="text-xs font-black text-[#75837b]">{plan.date} 생성</p><div className="flex items-center gap-2"><Link href={`/desktop?loadPlan=${encodeURIComponent(plan.id)}`} className="rounded-lg border border-[#005BAA] px-3 py-2 text-xs font-black text-[#005BAA]">불러오기</Link><button type="button" onClick={() => void deletePlan(plan)} disabled={deletingPlanId === plan.id} className="flex items-center gap-1 rounded-lg border border-rose-200 px-3 py-2 text-xs font-black text-rose-700 disabled:opacity-50"><Trash2 size={13} />{deletingPlanId === plan.id ? "삭제 중" : "삭제"}</button></div></div>
+                  <div className="flex items-center justify-between gap-4"><p className="text-xs font-black text-[#75837b]">{plan.date} 생성</p><div className="flex flex-wrap items-center justify-end gap-2"><Link href={`/desktop?loadPlan=${encodeURIComponent(plan.id)}`} className="rounded-lg border border-[#005BAA] px-3 py-2 text-xs font-black text-[#005BAA]">불러오기</Link><KakaoShareButton routeId={plan.id} routeTitle={plan.course.filter(isPlace).map((place) => place.name).slice(0, 2).join(" · ") || "웰니스 원스톱 루트"} /><button type="button" onClick={() => void deletePlan(plan)} disabled={deletingPlanId === plan.id} className="flex items-center gap-1 rounded-lg border border-rose-200 px-3 py-2 text-xs font-black text-rose-700 disabled:opacity-50"><Trash2 size={13} />{deletingPlanId === plan.id ? "삭제 중" : "삭제"}</button></div></div>
                   <div className="mt-4 flex flex-wrap gap-2">{plan.course.filter(isPlace).map((place) => <span key={`${plan.id}-${place.id}`} className="rounded-lg bg-white px-3 py-2 text-sm font-black text-[#526158]">{place.name}</span>)}</div>
                 </article>
               )) : <div className="flex min-h-64 flex-col items-center justify-center rounded-xl bg-[#f4f7f3] text-center"><Map size={34} className="mb-3 text-[#9aad9f]" /><p className="font-black text-[#526158]">저장된 루트가 없습니다.</p></div>}

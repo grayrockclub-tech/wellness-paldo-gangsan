@@ -678,6 +678,7 @@ export default function DesktopClient({ initialPlaces }: { initialPlaces: Place[
                 selected={mustGoSpots.includes(selectedPlace.id)}
                 weather={weatherByPlaceId[selectedPlace.id]}
                 onToggle={() => toggleMustGoSpot(selectedPlace.id)}
+                onNavigate={travelMode === "drive" ? () => openKakaoMapSearch(selectedPlace.name) : undefined}
               />
             </section>
           </div>
@@ -847,7 +848,7 @@ export default function DesktopClient({ initialPlaces }: { initialPlaces: Place[
                       </div>
                     </>
                   )}
-                  <Timeline course={generatedCourse} travelMode={travelMode} weatherByPlaceId={weatherByPlaceId} transitLegs={transitLegs} timeOffsetMinutes={travelMode === "walk" && originTransit?.status === "ready" ? originTransit.durationMinutes ?? 0 : 0} onMovePlace={moveGeneratedPlace} onRemovePlace={removeGeneratedPlace} onNavigate={openKakaoMapSearch} />
+                  <Timeline course={generatedCourse} weatherByPlaceId={weatherByPlaceId} transitLegs={transitLegs} timeOffsetMinutes={travelMode === "walk" && originTransit?.status === "ready" ? originTransit.durationMinutes ?? 0 : 0} onMovePlace={moveGeneratedPlace} onRemovePlace={removeGeneratedPlace} />
                 </div>
               ) : (
                 <div className="flex min-h-[260px] flex-col items-center justify-center rounded-lg bg-[#f4f7f3] px-6 text-center">
@@ -1172,11 +1173,13 @@ function PlaceDetailPanel({
   selected,
   weather,
   onToggle,
+  onNavigate,
 }: {
   place: Place;
   selected: boolean;
   weather?: WeatherSummary;
   onToggle: () => void;
+  onNavigate?: () => void;
 }) {
   const Icon = place.category === "food" ? Utensils : place.category === "stay" ? BedDouble : Leaf;
 
@@ -1211,10 +1214,18 @@ function PlaceDetailPanel({
             <p className="text-sm leading-6 text-[#526158]">{place.desc}</p>
           </div>
         </div>
-        <p className="mt-4 flex shrink-0 items-start gap-2 text-sm font-bold leading-6 text-[#66756c]">
-          <MapPin size={17} className="mt-1 shrink-0" style={{ color: GW_GREEN }} />
-          {place.addr}
-        </p>
+        <div className="mt-4 flex shrink-0 items-start justify-between gap-3">
+          <p className="flex min-w-0 items-start gap-2 text-sm font-bold leading-6 text-[#66756c]">
+            <MapPin size={17} className="mt-1 shrink-0" style={{ color: GW_GREEN }} />
+            {place.addr}
+          </p>
+          {onNavigate && (
+            <button onClick={onNavigate} className="flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[11px] font-black text-white" style={{ backgroundColor: GW_BLUE }}>
+              <Navigation size={12} />
+              카카오맵
+            </button>
+          )}
+        </div>
       </div>
       <WeatherInsightCard weather={weather} />
     </article>
@@ -1313,22 +1324,18 @@ function PlaceCard({
 
 function Timeline({
   course,
-  travelMode,
   weatherByPlaceId,
   transitLegs,
   timeOffsetMinutes,
   onMovePlace,
   onRemovePlace,
-  onNavigate,
 }: {
   course: CourseItem[];
-  travelMode: TravelMode;
   weatherByPlaceId: Record<string, WeatherSummary>;
   transitLegs: Record<number, TransitRoute>;
   timeOffsetMinutes: number;
   onMovePlace: (placeId: string, direction: -1 | 1) => void;
   onRemovePlace: (placeId: string) => void;
-  onNavigate: (destinationName: string) => void;
 }) {
   const placeItems = course.filter(isPlaceCourseItem);
   return (
@@ -1350,12 +1357,6 @@ function Timeline({
                 <button onClick={() => onMovePlace(item.id, 1)} disabled={placeItems.findIndex((place) => place.id === item.id) === placeItems.length - 1} className="rounded border border-[#dce6dc] p-1 text-[#526158] disabled:opacity-30" title="아래로 이동" aria-label={`${item.name} 아래로 이동`}><ChevronDown size={13} /></button>
                 <button onClick={() => onRemovePlace(item.id)} className="rounded border border-[#dce6dc] p-1 text-[#526158]" title="일정에서 삭제" aria-label={`${item.name} 일정에서 삭제`}><X size={13} /></button>
               </span>
-              {travelMode === "drive" && (
-                <button onClick={() => onNavigate(item.name)} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-black text-white" style={{ backgroundColor: GW_BLUE }}>
-                  <Navigation size={12} />
-                  카카오맵
-                </button>
-              )}
             </div>
             <h4 className="mt-3 text-sm font-black leading-5">{item.name}</h4>
             <div className="mt-2 flex flex-wrap items-center gap-2">

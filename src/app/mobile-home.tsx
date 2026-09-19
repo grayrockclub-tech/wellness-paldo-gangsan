@@ -25,6 +25,7 @@ import {
   RefreshCw,
   Save,
   Search,
+  Trash2,
   User,
   Utensils,
   X,
@@ -293,6 +294,7 @@ export default function MobileHome({ initialPlaces }: { initialPlaces: Place[] }
   const [transitLegs, setTransitLegs] = useState<Record<number, TransitRoute>>({});
   const [isPlanning, setIsPlanning] = useState(false);
   const [isSavingCourse, setIsSavingCourse] = useState(false);
+  const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
   const [generatedCourse, setGeneratedCourse] = useState<CourseItem[] | null>(null);
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
   const places = initialPlaces;
@@ -712,6 +714,22 @@ export default function MobileHome({ initialPlaces }: { initialPlaces: Place[] }
     setSelectedMapPlaceId(plan.course.find(isPlaceCourseItem)?.id ?? null);
     if (plan.travelMode === "walk" && plan.origin && !plan.originTransit) void loadTransitRoutes(plan.course, plan.origin);
     setActiveTab("map");
+  };
+
+  const deleteSavedPlan = async (plan: SavedPlan) => {
+    const placesInPlan = plan.course.filter(isPlaceCourseItem).map((place) => place.name).join(", ");
+    if (!window.confirm(`“${placesInPlan}” 루트를 삭제할까요?`)) return;
+
+    setDeletingPlanId(plan.id);
+    try {
+      const response = await fetch(`/api/routes?id=${encodeURIComponent(plan.id)}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Failed to delete route");
+      setSavedPlans((current) => current.filter((item) => item.id !== plan.id));
+    } catch {
+      alert("저장된 루트를 삭제하지 못했습니다. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setDeletingPlanId(null);
+    }
   };
 
   const originTravelMinutes = travelMode === "walk" && originTransit?.status === "ready" ? originTransit.durationMinutes ?? 0 : 0;
@@ -1162,9 +1180,12 @@ export default function MobileHome({ initialPlaces }: { initialPlaces: Place[] }
                     <div key={plan.id} className="rounded-[1.5rem] border border-white/70 bg-white/50 p-5 shadow-sm">
                       <div className="mb-4 flex items-center justify-between gap-2">
                         <span className="rounded-md border border-white/60 bg-white/50 px-2.5 py-1 text-[10px] font-black text-slate-500">{plan.date} 생성</span>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center justify-end gap-2">
                           <button onClick={() => openSavedPlan(plan)} className="text-[10px] font-black" style={{ color: GW_BLUE }}>루트 보기 &rarr;</button>
                           <KakaoShareButton routeId={plan.id} />
+                          <button type="button" onClick={() => void deleteSavedPlan(plan)} disabled={deletingPlanId === plan.id} className="flex items-center gap-1 rounded-lg border border-rose-200 bg-white/70 px-2 py-2 text-[10px] font-black text-rose-700 disabled:opacity-50" aria-label="저장된 루트 삭제">
+                            <Trash2 size={13} />{deletingPlanId === plan.id ? "삭제 중" : "삭제"}
+                          </button>
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">

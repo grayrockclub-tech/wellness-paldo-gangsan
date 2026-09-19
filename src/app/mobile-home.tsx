@@ -1178,23 +1178,23 @@ export default function MobileHome({ initialPlaces }: { initialPlaces: Place[] }
                 <div className="space-y-4">
                   {savedPlans.length > 0 ? savedPlans.map((plan) => (
                     <div key={plan.id} className="rounded-[1.5rem] border border-white/70 bg-white/50 p-5 shadow-sm">
-                      <div className="mb-4">
+                      <div>
                         <span className="inline-flex whitespace-nowrap rounded-md border border-white/60 bg-white/50 px-2.5 py-1 text-[10px] font-black text-slate-500">{plan.date} 생성</span>
-                        <div className="mt-3 flex items-center justify-end gap-2">
-                          <button onClick={() => openSavedPlan(plan)} className="whitespace-nowrap px-1 text-[10px] font-black" style={{ color: GW_BLUE }}>불러오기</button>
-                          <KakaoShareButton routeId={plan.id} />
-                          <button type="button" onClick={() => void deleteSavedPlan(plan)} disabled={deletingPlanId === plan.id} className="flex shrink-0 items-center gap-1 rounded-lg border border-rose-200 bg-white/70 px-2 py-2 text-[10px] font-black text-rose-700 disabled:opacity-50" aria-label="저장된 루트 삭제">
-                            <Trash2 size={13} />{deletingPlanId === plan.id ? "삭제 중" : "삭제"}
-                          </button>
-                        </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
                         {plan.course.filter(isPlaceCourseItem).map((place) => (
                           <div key={`${plan.id}-${place.id}`} className="min-w-0 rounded-xl border border-white/80 bg-white/60 px-3 py-2.5 text-center shadow-sm">
                             <span className="mb-0.5 block text-[8px] font-bold text-emerald-600">{place.category === "food" ? "맛집" : place.category === "stay" ? "숙소" : "스팟"}</span>
                             <span className="block truncate text-[10px] font-bold text-slate-700">{place.name}</span>
                           </div>
                         ))}
+                      </div>
+                      <div className="mt-3 grid grid-cols-3 gap-2">
+                        <button onClick={() => openSavedPlan(plan)} className="flex h-9 min-w-0 items-center justify-center whitespace-nowrap rounded-lg border border-[#005BAA] bg-white/70 px-1.5 text-[10px] font-black text-[#005BAA]">불러오기</button>
+                        <KakaoShareButton routeId={plan.id} className="h-9 min-w-0 w-full justify-center whitespace-nowrap px-1.5 text-[10px]" />
+                        <button type="button" onClick={() => void deleteSavedPlan(plan)} disabled={deletingPlanId === plan.id} className="flex h-9 min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-rose-200 bg-white/70 px-1.5 text-[10px] font-black text-rose-700 disabled:opacity-50" aria-label="저장된 루트 삭제">
+                          <Trash2 size={13} />{deletingPlanId === plan.id ? "삭제 중" : "삭제"}
+                        </button>
                       </div>
                     </div>
                   )) : (

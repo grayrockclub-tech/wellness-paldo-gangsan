@@ -20,5 +20,14 @@ export async function ensureSavedRoutesTable() {
     ALTER TABLE saved_routes
     ADD COLUMN IF NOT EXISTS share_id TEXT UNIQUE
   `;
+  await sql`
+    ALTER TABLE saved_routes
+    ADD COLUMN IF NOT EXISTS saved_from_share_id TEXT
+  `;
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS saved_routes_user_share_source_unique
+    ON saved_routes (user_id, saved_from_share_id)
+    WHERE saved_from_share_id IS NOT NULL
+  `;
   return sql;
 }

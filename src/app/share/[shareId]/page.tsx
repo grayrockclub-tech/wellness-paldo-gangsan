@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Leaf, MapPin, Route } from "lucide-react";
 import { notFound } from "next/navigation";
 import { ensureSavedRoutesTable } from "@/lib/neon-db";
+import { SaveSharedRouteButton } from "@/components/save-shared-route-button";
 
 type SharedPlace = {
   id: string;
@@ -88,7 +89,10 @@ export default async function SharedRoutePage({ params }: { params: Promise<{ sh
               <li key={`travel-${index}`} className="flex items-center gap-3 px-5 text-sm font-bold text-slate-400"><span className="h-px flex-1 bg-[#dce8de]" />이동 {item.duration ?? "-"}분<span className="h-px flex-1 bg-[#dce8de]" /></li>
             ))}
           </ol>
-          <Link href="/" className="mt-10 flex w-full items-center justify-center rounded-xl bg-[#005BAA] px-5 py-4 text-sm font-black text-white">나만의 루트 만들기</Link>
+          <div className="mt-10">
+            <Link href="/" className="flex w-full items-center justify-center rounded-xl bg-[#005BAA] px-5 py-4 text-sm font-black text-white">나만의 루트 만들기</Link>
+            <SaveSharedRouteButton shareId={shareId} />
+          </div>
         </div>
       </section>
     </main>

@@ -60,7 +60,7 @@ function loadKakaoSdk(appKey: string) {
   return sdkPromise;
 }
 
-export function KakaoShareButton({ routeId }: { routeId: string }) {
+export function KakaoShareButton({ routeId, className = "" }: { routeId: string; className?: string }) {
   const [isSharing, setIsSharing] = useState(false);
 
   const share = async () => {
@@ -88,7 +88,7 @@ export function KakaoShareButton({ routeId }: { routeId: string }) {
   };
 
   return (
-    <button type="button" onClick={() => void share()} disabled={isSharing} className="flex items-center gap-1 rounded-lg border border-[#F0D900] bg-[#FEE500] px-3 py-2 text-xs font-black text-[#191919] disabled:opacity-60">
+    <button type="button" onClick={() => void share()} disabled={isSharing} className={`flex items-center gap-1 rounded-lg border border-[#F0D900] bg-[#FEE500] px-3 py-2 text-xs font-black text-[#191919] disabled:opacity-60 ${className}`}>
       <MessageCircle size={13} fill="currentColor" />
       {isSharing ? "준비 중" : "공유"}
     </button>

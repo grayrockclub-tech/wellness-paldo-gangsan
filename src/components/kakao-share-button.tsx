@@ -13,6 +13,7 @@ type KakaoSdk = {
       link: { mobileWebUrl: string; webUrl: string };
       buttonTitle: string;
     }) => void;
+    sendScrap: (message: { requestUrl: string }) => void;
   };
 };
 
@@ -59,7 +60,7 @@ function loadKakaoSdk(appKey: string) {
   return sdkPromise;
 }
 
-export function KakaoShareButton({ routeId, routeTitle }: { routeId: string; routeTitle: string }) {
+export function KakaoShareButton({ routeId }: { routeId: string }) {
   const [isSharing, setIsSharing] = useState(false);
 
   const share = async () => {
@@ -78,12 +79,7 @@ export function KakaoShareButton({ routeId, routeTitle }: { routeId: string; rou
 
       const shareUrl = `${window.location.origin}/share/${data.shareId}`;
       const kakao = await loadKakaoSdk(appKey);
-      kakao.Share.sendDefault({
-        objectType: "text",
-        text: `웰니스 강원 원스톱 루트\n${routeTitle}\n여행 일정을 확인해 보세요.`,
-        link: { mobileWebUrl: shareUrl, webUrl: shareUrl },
-        buttonTitle: "루트 보기",
-      });
+      kakao.Share.sendScrap({ requestUrl: shareUrl });
     } catch (error) {
       alert(error instanceof Error ? error.message : "카카오톡 공유를 시작하지 못했습니다.");
     } finally {

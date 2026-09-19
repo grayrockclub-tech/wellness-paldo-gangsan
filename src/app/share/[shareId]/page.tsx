@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { Leaf, MapPin, Route } from "lucide-react";
 import { notFound } from "next/navigation";
 import { ensureSavedRoutesTable } from "@/lib/neon-db";
@@ -15,16 +16,7 @@ type SharedPlace = {
 type SharedCourseItem = SharedPlace | { type: "travel"; duration?: number };
 type SavedRouteRow = { route_data: unknown; created_at: string };
 
-function isPlace(item: SharedCourseItem): item is SharedPlace {
-  return "name" in item;
-}
-
-function categoryLabel(category: SharedPlace["category"]) {
-  return category === "food" ? "맛집" : category === "stay" ? "숙소" : "웰니스 스팟";
-}
-
-export default async function SharedRoutePage({ params }: { params: Promise<{ shareId: string }> }) {
-  const { shareId } = await params;
+async function getSharedPlan(shareId: string) {
   const sql = await ensureSavedRoutesTable();
   const rows = await sql`
     SELECT route_data, created_at
@@ -33,13 +25,40 @@ export default async function SharedRoutePage({ params }: { params: Promise<{ sh
     LIMIT 1
   ` as SavedRouteRow[];
   const row = rows[0];
-  if (!row) notFound();
+  if (!row) return null;
 
   const plan = (typeof row.route_data === "string" ? JSON.parse(row.route_data) : row.route_data) as { course?: SharedCourseItem[]; travelMode?: "walk" | "drive" };
   const course = Array.isArray(plan.course) ? plan.course : [];
   const places = course.filter(isPlace);
+  return { plan, course, places, date: new Date(row.created_at).toLocaleDateString("ko-KR") };
+}
+
+function isPlace(item: SharedCourseItem): item is SharedPlace {
+  return "name" in item;
+}
+
+function categoryLabel(category: SharedPlace["category"]) {
+  return category === "food" ? "맛집" : category === "stay" ? "숙소" : "웰니스 스팟";
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ shareId: string }> }): Promise<Metadata> {
+  const { shareId } = await params;
+  const shared = await getSharedPlan(shareId).catch(() => null);
+  const title = shared?.places.slice(0, 2).map((place) => place.name).join(" · ") || "웰니스 원스톱 루트";
+  const description = shared ? `${shared.date} 생성 · 웰니스 강원에서 만든 여행 일정` : "웰니스 강원 원스톱 여행 일정";
+  return {
+    title: `${title} | 웰니스 강원`,
+    description,
+    openGraph: { title: `${title} | 웰니스 강원`, description, type: "website" },
+  };
+}
+
+export default async function SharedRoutePage({ params }: { params: Promise<{ shareId: string }> }) {
+  const { shareId } = await params;
+  const shared = await getSharedPlan(shareId).catch(() => null);
+  if (!shared) notFound();
+  const { plan, course, places, date } = shared;
   const title = places.slice(0, 2).map((place) => place.name).join(" · ") || "웰니스 원스톱 루트";
-  const date = new Date(row.created_at).toLocaleDateString("ko-KR");
 
   return (
     <main className="min-h-screen bg-[#eef5ef] px-4 py-8 text-[#17211b] sm:px-6 sm:py-12">

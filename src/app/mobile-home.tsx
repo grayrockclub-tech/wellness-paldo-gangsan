@@ -1164,7 +1164,7 @@ export default function MobileHome({ initialPlaces }: { initialPlaces: Place[] }
                         <span className="rounded-md border border-white/60 bg-white/50 px-2.5 py-1 text-[10px] font-black text-slate-500">{plan.date} 생성</span>
                         <div className="flex items-center gap-2">
                           <button onClick={() => openSavedPlan(plan)} className="text-[10px] font-black" style={{ color: GW_BLUE }}>루트 보기 &rarr;</button>
-                          <KakaoShareButton routeId={plan.id} routeTitle={plan.course.filter(isPlaceCourseItem).map((place) => place.name).slice(0, 2).join(" · ") || "웰니스 원스톱 루트"} />
+                          <KakaoShareButton routeId={plan.id} />
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">

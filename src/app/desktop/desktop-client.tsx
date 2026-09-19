@@ -747,10 +747,7 @@ export default function DesktopClient({ initialPlaces }: { initialPlaces: Place[
                 <SlidersHorizontal size={18} />
                 원스톱 루트 계획
               </h3>
-              <div className="flex items-center gap-2">
-                <span className="rounded-lg bg-[#eaf2ff] px-3 py-1 text-xs font-black" style={{ color: GW_BLUE }}>
-                  MVP
-                </span>
+              <div className="flex items-center">
                 <button onClick={() => setIsPlannerOpen(false)} className="rounded-lg border border-[#dce6dc] p-2 text-[#526158]" title="닫기">
                   <X size={16} />
                 </button>

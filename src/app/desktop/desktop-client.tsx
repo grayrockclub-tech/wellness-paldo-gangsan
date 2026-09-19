@@ -678,7 +678,7 @@ export default function DesktopClient({ initialPlaces }: { initialPlaces: Place[
                 selected={mustGoSpots.includes(selectedPlace.id)}
                 weather={weatherByPlaceId[selectedPlace.id]}
                 onToggle={() => toggleMustGoSpot(selectedPlace.id)}
-                onNavigate={travelMode === "drive" ? () => openKakaoMapSearch(selectedPlace.name) : undefined}
+                onNavigate={() => openKakaoMapSearch(selectedPlace.name)}
               />
             </section>
           </div>

@@ -29,21 +29,21 @@ export async function GET(request: NextRequest) {
 
   try {
     if (contentId) {
-      const baseParams = { content_id: contentId, lang_div_cd: "KOR", num_of_rows: "20", page_no: "1" };
+      const baseParams = { contentId, langDivCd: "KOR", numOfRows: "20", pageNo: "1" };
       const [common, images, intro] = await Promise.all([
         requestWellnessApi("detailCommon", baseParams),
-        requestWellnessApi("detailImage", { ...baseParams, image_yn: "Y" }),
-        contentTypeId ? requestWellnessApi("detailIntro", { ...baseParams, content_type_id: contentTypeId }) : Promise.resolve(null),
+        requestWellnessApi("detailImage", { ...baseParams, imageYN: "Y" }),
+        contentTypeId ? requestWellnessApi("detailIntro", { ...baseParams, contentTypeId }) : Promise.resolve(null),
       ]);
       return noStoreJson({ common, images, intro });
     }
 
     const page = Math.min(Math.max(Number(request.nextUrl.searchParams.get("page") ?? "1") || 1, 1), 10);
     const list = await requestWellnessApi("areaBasedList", {
-      lang_div_cd: "KOR",
-      num_of_rows: "100",
-      page_no: String(page),
-      l_dong_regn_cd: "32",
+      langDivCd: "KOR",
+      numOfRows: "100",
+      pageNo: String(page),
+      lDongRegnCd: "32",
       arrange: "A",
     });
     return noStoreJson({ list });

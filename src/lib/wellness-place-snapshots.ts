@@ -59,7 +59,9 @@ export async function getLatestWellnessPlaceSnapshot(): Promise<WellnessPlaceSna
 }
 
 export async function getCurrentWellnessPlaceSnapshot(): Promise<WellnessPlaceSnapshot> {
-  return await getLatestWellnessPlaceSnapshot() ?? await refreshWellnessPlaceSnapshot();
+  const latest = await getLatestWellnessPlaceSnapshot();
+  if (latest?.places.some((place) => place.dataSource === "wellness-tour")) return latest;
+  return await refreshWellnessPlaceSnapshot();
 }
 
 export async function refreshWellnessPlaceSnapshot(): Promise<WellnessPlaceSnapshot> {

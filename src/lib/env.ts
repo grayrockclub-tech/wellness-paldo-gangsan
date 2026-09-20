@@ -1,5 +1,6 @@
 export type RuntimeEnvStatus = {
   tourApiKey: boolean;
+  wellnessTourApiKey: boolean;
   gangwonRestaurantApiKey: boolean;
   weatherApiKey: boolean;
   kakaoMapKey: boolean;
@@ -25,6 +26,7 @@ export const WEATHER_API_BASE_URL = getOptionalEnv("WEATHER_API_BASE_URL", DEFAU
 export function getRuntimeEnvStatus(): RuntimeEnvStatus {
   return {
     tourApiKey: Boolean(process.env.TOUR_API_KEY),
+    wellnessTourApiKey: Boolean(process.env.WELLNESS_TOUR_API_KEY),
     gangwonRestaurantApiKey: Boolean(getGangwonRestaurantApiKey()),
     weatherApiKey: Boolean(process.env.WEATHER_API_KEY),
     kakaoMapKey: Boolean(process.env.NEXT_PUBLIC_KAKAO_MAP_KEY),

@@ -71,7 +71,8 @@ type SubCategoryFilter =
   | "resort"
   | "wellness"
   | "healing"
-  | "hotel";
+  | "hotel"
+  | "spa";
 type TravelMode = "walk" | "drive";
 type PlanMode = "selected-only" | "selected-with-recommendations";
 type PlanTheme = "food" | "forest" | "mindfulness" | "spa" | "temple" | "auto";
@@ -90,7 +91,7 @@ type Place = {
   contentId?: string;
   contentTypeId?: string;
   image?: string;
-  dataSource?: "tourapi" | "gangwon-restaurant" | "curated" | "sample";
+  dataSource?: "tourapi" | "wellness-tour" | "gangwon-restaurant" | "curated" | "sample";
 };
 
 type PlaceCourseItem = BuiltPlaceCourseItem<Place>;
@@ -1464,6 +1465,7 @@ function getSubCategoryLabel(category: SubCategoryFilter) {
     wellness: "웰니스센터",
     healing: "힐링스테이",
     hotel: "호텔",
+    spa: "스파",
   };
 
   return labels[category];

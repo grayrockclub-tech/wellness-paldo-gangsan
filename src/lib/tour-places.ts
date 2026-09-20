@@ -2,6 +2,7 @@ import { getCached } from "./cache";
 import { getCuratedWellnessPlaces } from "./curated-wellness-places";
 import { getGangwonRestaurantPlaces } from "./gangwon-restaurants";
 import { GANGWON_AREA_CODE, fetchTourApi } from "./tour-api";
+import { getGangwonWellnessTourPlaces } from "./wellness-tour";
 
 export type WellnessPlaceCategory = "spot" | "food" | "stay";
 
@@ -18,7 +19,8 @@ export type WellnessPlace = {
     | "resort"
     | "wellness"
     | "healing"
-    | "hotel";
+    | "hotel"
+    | "spa";
   name: string;
   addr: string;
   desc: string;
@@ -28,8 +30,8 @@ export type WellnessPlace = {
   image?: string;
   contentId?: string;
   contentTypeId?: string;
-  dataSource?: "tourapi" | "gangwon-restaurant" | "curated" | "sample";
-  descriptionSource?: "tourapi-overview" | "gangwon-restaurant" | "generated";
+  dataSource?: "tourapi" | "wellness-tour" | "gangwon-restaurant" | "curated" | "sample";
+  descriptionSource?: "tourapi-overview" | "wellness-tour-overview" | "gangwon-restaurant" | "generated";
 };
 
 type TourItem = {
@@ -178,7 +180,7 @@ export async function getWellnessPlacesFromTourApi(): Promise<WellnessPlacesResu
   const curatedPlaces = getCuratedWellnessPlaces();
 
   try {
-    const [areaResults, keywordResults, restaurantResult] = await Promise.all([
+    const [areaResults, keywordResults, restaurantResult, wellnessTourResult] = await Promise.all([
       Promise.allSettled(areaListRequests.map(({ contentTypeId, rows }) => fetchAreaList(contentTypeId, rows))),
       Promise.allSettled(keywordRequests.map(({ keyword, rows }) => fetchKeywordList(keyword, rows))),
       getGangwonRestaurantPlaces().then(
@@ -188,15 +190,26 @@ export async function getWellnessPlacesFromTourApi(): Promise<WellnessPlacesResu
           warning: error instanceof Error ? error.message : "Gangwon restaurant API request failed.",
         }),
       ),
+      getGangwonWellnessTourPlaces().then(
+        (places) => ({ places, warning: null }),
+        (error: unknown) => ({
+          places: [],
+          warning: error instanceof Error ? error.message : "Wellness tourism API request failed.",
+        }),
+      ),
     ]);
     if (restaurantResult.warning) warnings.push(restaurantResult.warning);
+    if (wellnessTourResult.warning) warnings.push(wellnessTourResult.warning);
     const areaItems = collectTourItems(areaResults, warnings, "area");
     const keywordItems = collectTourItems(keywordResults, warnings, "keyword");
     const items = dedupeTourItems([...areaItems.flat(), ...keywordItems.flat()]);
     const apiItemCount = items.length;
 
     const tourPlaces = await enrichPlacesWithDetailOverview(selectWellnessPlaces(items), warnings);
-    const places = mergeCuratedPlaces(mergeRestaurantPlaces(tourPlaces, restaurantResult.places), curatedPlaces);
+    const places = mergeWellnessTourPlaces(
+      mergeCuratedPlaces(mergeRestaurantPlaces(tourPlaces, restaurantResult.places), curatedPlaces),
+      wellnessTourResult.places,
+    );
 
     if (places.length === 0) {
       warnings.push(
@@ -468,6 +481,23 @@ function mergeCuratedPlaces(places: WellnessPlace[], curatedPlaces: WellnessPlac
     ...curatedPlaces,
     ...places.filter((place) => !byName.has(normalizePlaceName(place.name))),
   ];
+}
+
+function mergeWellnessTourPlaces(places: WellnessPlace[], wellnessTourPlaces: WellnessPlace[]) {
+  const usedKeys = new Set(places.map(placeKey));
+  return [
+    ...places,
+    ...wellnessTourPlaces.filter((place) => {
+      const key = placeKey(place);
+      if (usedKeys.has(key)) return false;
+      usedKeys.add(key);
+      return true;
+    }),
+  ];
+}
+
+function placeKey(place: Pick<WellnessPlace, "contentId" | "name" | "addr">) {
+  return place.contentId ?? `${normalizePlaceName(place.name)}:${place.addr.replace(/\s+/g, "")}`;
 }
 
 function normalizePlaceName(name: string) {

@@ -12,7 +12,7 @@ async function requestWellnessApi(operation: string, params: Record<string, stri
   const serviceKey = process.env.WELLNESS_TOUR_API_KEY;
   if (!serviceKey) throw new Error("WELLNESS_TOUR_API_KEY is not configured.");
 
-  const query = new URLSearchParams(params);
+  const query = new URLSearchParams({ MobileOS: "ETC", MobileApp: "WellnessGangwon", _type: "json", ...params });
   const response = await fetch(`${BASE_URL}/${operation}?serviceKey=${serviceKey}&${query}`, { cache: "no-store" });
   const raw = await response.text();
 

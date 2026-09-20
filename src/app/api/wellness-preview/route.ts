@@ -43,7 +43,6 @@ export async function GET(request: NextRequest) {
       langDivCd: "KOR",
       numOfRows: "100",
       pageNo: String(page),
-      lDongRegnCd: "32",
       arrange: "A",
     });
     return noStoreJson({ list });
